@@ -1,0 +1,111 @@
+/**
+ * Phase 8: Tailwind v4 Theme — LINEAR dark + DUB light tokens
+ * EXACT match to robotspace/prototype/index.html token definitions
+ * No STEEP tokens, no invention
+ */
+
+@import 'tailwindcss';
+
+@source '../../apps/web/src/**/*.{ts,tsx}';
+@source '../../packages/ui/src/**/*.{ts,tsx}';
+
+@theme {
+  /* Surfaces */
+  --color-bg-canvas: #08090a;
+  --color-bg-card: #0f1011;
+  --color-bg-elevated: #161718;
+  --color-border-color: #23252a;
+  --color-border-strong: #383b3f;
+  --color-nav-bg: rgba(8, 9, 10, 0.85);
+
+  /* Text */
+  --color-text-heading: #ffffff;
+  --color-text-body: #d0d6e0;
+  --color-text-muted: #8a8f98;
+  --color-text-dim: #62666d;
+
+  /* Accents */
+  --color-accent-cta: #e4f222;
+  --color-accent-cta-text: #08090a;
+  --color-accent-data: #34d59a;
+  --color-accent-b2b: #5266eb;
+  --color-accent-growth: #27a644;
+  --color-accent-decline: #eb5757;
+  --color-accent-alert: #ff3621;
+
+  /* Shadows */
+  --shadow-card: rgb(35, 37, 42) 0px 0px 0px 1px inset;
+
+  /* Misc */
+  --color-tag-bg: rgba(255, 255, 255, 0.02);
+  --color-input-bg: rgba(255, 255, 255, 0.02);
+  --color-input-border: rgba(255, 255, 255, 0.08);
+  --color-hover-bg: rgba(255, 255, 255, 0.04);
+  --color-nav-link: #d0d6e0;
+
+  /* Typography */
+  --font-inter: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* Type scale (matching prototype) */
+  --text-caption: 13px;
+  --text-body-sm: 15px;
+  --text-body-lg: 20px;
+  --text-subheading: 24px;
+  --text-heading-sm: 32px;
+  --text-heading: 48px;
+  --text-heading-lg: 64px;
+  --text-display: 72px;
+
+  /* Spacing (4px base unit) */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+
+  /* Border radius */
+  --radius-btn: 6px;
+  --radius-card: 12px;
+  --radius-pill: 9999px;
+  --radius-badge: 4px;
+  --radius-input: 6px;
+
+  /* Layout */
+  --max-width-page: 1200px;
+}
+
+/* ====== LIGHT THEME OVERRIDES ====== */
+[data-theme='light'] {
+  --color-bg-canvas: #ffffff;
+  --color-bg-card: #f5f5f5;
+  --color-bg-elevated: #fafafa;
+  --color-border-color: #e5e5e5;
+  --color-border-strong: #d4d4d4;
+  --color-nav-bg: rgba(255, 255, 255, 0.85);
+
+  --color-text-heading: #171717;
+  --color-text-body: #404040;
+  --color-text-muted: #737373;
+  --color-text-dim: #a3a3a3;
+
+  --color-accent-cta: #2563eb;
+  --color-accent-cta-text: #ffffff;
+  --color-accent-data: #047857;
+  --color-accent-growth: #16a34a;
+  --color-accent-decline: #dc2626;
+
+  --color-tag-bg: rgba(0, 0, 0, 0.05);
+  --color-input-bg: rgba(0, 0, 0, 0.02);
+  --color-input-border: rgba(0, 0, 0, 0.12);
+  --color-hover-bg: rgba(0, 0, 0, 0.04);
+  --color-nav-link: #404040;
+
+  --shadow-card: rgb(229, 229, 229) 0px 0px 0px 1px inset;
+}

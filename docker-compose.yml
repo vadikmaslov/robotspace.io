@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    container_name: robotspace-postgres
+    environment:
+      POSTGRES_DB: robotspace_dev
+      POSTGRES_USER: robotspace
+      POSTGRES_PASSWORD: robotspace_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - robotspace-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U robotspace -d robotspace_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+
+  testdb:
+    image: postgres:18.4-alpine
+    container_name: robotspace-testdb
+    environment:
+      POSTGRES_DB: robotspace_test
+      POSTGRES_USER: robotspace
+      POSTGRES_PASSWORD: robotspace_pass
+    ports:
+      - '5433:5432'
+    command: ['postgres', '-c', 'shared_preload_libraries=pg_stat_statements']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U robotspace -d robotspace_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+
+volumes:
+  robotspace-data:
+    name: robotspace-local-db

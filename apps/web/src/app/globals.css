@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/* RobotsSpace LINEAR + DUB tokens */
+@theme {
+  --color-bg-canvas: #08090a;
+  --color-bg-card: #0f1011;
+  --color-bg-elevated: #161718;
+  --color-border-color: #23252a;
+  --color-border-strong: #383b3f;
+  --color-nav-bg: rgba(8, 9, 10, 0.85);
+  --color-nav-overlay-bg: rgba(8, 9, 10, 0.95);
+  --color-text-heading: #ffffff;
+  --color-text-body: #d0d6e0;
+  --color-text-muted: #8a8f98;
+  --color-text-dim: #62666d;
+  --color-accent-cta: #e4f222;
+  --color-accent-cta-text: #08090a;
+  --color-accent-data: #34d59a;
+  --color-accent-b2b: #5266eb;
+  --color-accent-growth: #27a644;
+  --color-accent-decline: #eb5757;
+  --color-accent-alert: #ff3621;
+  --color-tag-bg: rgba(255, 255, 255, 0.02);
+  --color-input-bg: rgba(255, 255, 255, 0.02);
+  --color-input-border: rgba(255, 255, 255, 0.08);
+  --color-hover-bg: rgba(255, 255, 255, 0.04);
+  --color-nav-link: #d0d6e0;
+  --font-inter: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --shadow-card: rgb(35, 37, 42) 0px 0px 0px 1px inset;
+}
+
+[data-theme='light'] {
+  --color-bg-canvas: #ffffff;
+  --color-bg-card: #f5f5f5;
+  --color-bg-elevated: #fafafa;
+  --color-border-color: #e5e5e5;
+  --color-border-strong: #d4d4d4;
+  --color-nav-bg: rgba(255, 255, 255, 0.85);
+  --color-nav-overlay-bg: rgba(255, 255, 255, 0.95);
+  --color-text-heading: #171717;
+  --color-text-body: #404040;
+  --color-text-muted: #737373;
+  --color-text-dim: #a3a3a3;
+  --color-accent-cta: #2563eb;
+  --color-accent-cta-text: #ffffff;
+  --color-accent-data: #047857;
+  --color-accent-growth: #16a34a;
+  --color-accent-decline: #dc2626;
+  --color-tag-bg: rgba(0, 0, 0, 0.05);
+  --color-input-bg: rgba(0, 0, 0, 0.02);
+  --color-input-border: rgba(0, 0, 0, 0.12);
+  --color-hover-bg: rgba(0, 0, 0, 0.04);
+  --color-nav-link: #404040;
+  --shadow-card: rgb(229, 229, 229) 0px 0px 0px 1px inset;
+}
+
+.brand-logo-color { display: none; }
+.brand-logo-white { display: block; }
+[data-theme='light'] .brand-logo-color { display: block; }
+[data-theme='light'] .brand-logo-white { display: none; }
+
+/* Select styling — override browser defaults */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238a8f98' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px !important;
+}
+select option {
+  background: var(--color-bg-elevated, #161718);
+  color: var(--color-text-body, #d0d6e0);
+}
+
+/* Range inputs — accent color from palette */
+input[type="range"] {
+  accent-color: var(--color-accent-cta, #e4f222);
+}
+
+/* Focus outlines — replace blue with accent */
+*:focus-visible {
+  outline-color: var(--color-accent-cta, #e4f222);
+}
+
+body {
+  background: var(--color-bg-canvas);
+  color: var(--color-text-body);
+  font-family: var(--font-inter);
+}

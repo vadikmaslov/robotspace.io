@@ -1,0 +1,32 @@
+{
+  "name": "@robotspace/db",
+  "version": "0.0.0",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./registry-import": "./src/registry-import.ts"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:deploy": "tsx src/migrate.ts",
+    "db:push": "prisma db push",
+    "db:seed": "tsx src/seed.ts",
+    "db:seed-registry-fixtures": "tsx src/registry-fixtures.ts",
+    "test": "tsx src/tests.ts",
+    "test:registry": "tsx src/registry-tests.ts",
+    "test:registry-import": "tsx src/registry-import-tests.ts",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "6.7.0",
+    "@prisma/client": "6.7.0",
+    "prisma": "6.7.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

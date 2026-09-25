@@ -1,0 +1,12 @@
+'use client'
+
+import { useState } from 'react'
+
+export function AgentControls({ agentKey, enabled, cron, runnable, planned }: { agentKey: string; enabled: boolean; cron: string | null; runnable: boolean; planned: boolean }) {
+  const [isEnabled, setIsEnabled] = useState(enabled)
+  const [schedule, setSchedule] = useState(cron ?? '')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function request(body: Record<string, unknown>) { setBusy(true); setMessage(''); try { const response = await fetch('/api/admin/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent_key: agentKey, ...body }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Request failed'); setMessage(body.action === 'run' ? 'Queued; the worker will start it shortly.' : 'Saved.'); } catch (error) { setMessage(error instanceof Error ? error.message : 'Request failed') } finally { setBusy(false) } }
+  return <div className="flex flex-wrap content-start items-center justify-start lg:justify-end gap-2"><div className="w-full text-[11px] lg:text-right" style={{ color: 'var(--color-text-dim)' }}>{planned ? 'Executor not implemented — schedule can be prepared only.' : 'Durable schedule'}</div>{cron !== null && <input value={schedule} onChange={e => setSchedule(e.target.value)} aria-label="Schedule" className="w-32 rounded border px-2 py-1 text-xs font-mono" style={{ background: 'var(--color-input-bg)', color: 'var(--color-text-body)', borderColor: 'var(--color-input-border)' }} />}{cron !== null && <label className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-muted)' }}><input type="checkbox" checked={isEnabled} disabled={planned} onChange={e => setIsEnabled(e.target.checked)} /> Enabled</label>}<button onClick={() => request({ action: 'update', is_enabled: isEnabled, cron_expression: cron === null ? null : schedule })} disabled={busy} className="rounded border px-2 py-1 text-xs disabled:opacity-50" style={{ borderColor: 'var(--color-border-color)' }}>Save</button>{runnable && <button onClick={() => request({ action: 'run' })} disabled={busy} className="rounded px-2 py-1 text-xs disabled:opacity-50" style={{ background: 'var(--color-accent-cta)', color: 'var(--color-accent-cta-text)' }}>Run now</button>}{message && <span className="w-full lg:text-right text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{message}</span>}</div>
+}

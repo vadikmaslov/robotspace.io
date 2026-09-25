@@ -1,0 +1,35 @@
+services:
+  web:
+    image: ${ROBOTSPACE_IMAGE}
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    volumes:
+      - robotspace_uploads:/app/apps/web/.next/standalone/apps/web/public/uploads
+    restart: unless-stopped
+    mem_limit: 900m
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      ROBOTSPACE_DOMAIN: ${ROBOTSPACE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+    mem_limit: 128m
+
+volumes:
+  caddy_data:
+  caddy_config:
+  robotspace_uploads:

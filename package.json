@@ -1,0 +1,46 @@
+{
+  "name": "robotspace-app",
+  "private": true,
+  "version": "0.0.0",
+  "description": "RobotSpace.io MVP - global B2B robotics portal",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": "^24.18.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @robotspace/db db:generate && pnpm --filter @robotspace/app build",
+    "lint": "pnpm --filter @robotspace/app lint",
+    "typecheck": "pnpm --filter @robotspace/app typecheck",
+    "test": "pnpm -r test",
+    "test:integration": "pnpm test:integration --filter @robotspace/db --filter @robotspace/app",
+    "test:e2e": "pnpm test:e2e",
+    "db:migrate": "pnpm --filter @robotspace/db db:migrate",
+    "db:generate": "pnpm --filter @robotspace/db db:generate",
+    "seed": "pnpm --filter @robotspace/db db:seed",
+    "ai:migrate-credentials": "tsx scripts/migrate-ai-credentials.ts",
+    "security:secrets": "node scripts/scan-secrets.mjs",
+    "ci:check": "pnpm security:secrets && pnpm typecheck && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp"
+    ],
+    "overrides": {
+      "postcss": "8.5.18",
+      "sharp": "0.35.0"
+    }
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "pg": "^8.22.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.1"
+  }
+}

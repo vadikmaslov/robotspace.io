@@ -1,0 +1,21 @@
+{
+  "name": "@robotspace/ingestion",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@robotspace/domain": "workspace:*",
+    "@robotspace/db": "workspace:*",
+    "@robotspace/observability": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

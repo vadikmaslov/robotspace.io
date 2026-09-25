@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: robotspace_ci
+          POSTGRES_USER: robotspace
+          POSTGRES_PASSWORD: robotspace_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U robotspace -d robotspace_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://robotspace:robotspace_pass@localhost:5432/robotspace_ci?schema=public
+      DIRECT_DATABASE_URL: postgresql://robotspace:robotspace_pass@localhost:5432/robotspace_ci?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Secret scan
+        run: pnpm security:secrets
+
+      - name: Generate Prisma client and apply migrations
+        run: |
+          pnpm --filter @robotspace/db db:generate
+          pnpm --filter @robotspace/db db:deploy
+
+      - name: Seed and verify database invariants
+        run: |
+          pnpm --filter @robotspace/db db:seed
+          pnpm --filter @robotspace/db test
+          pnpm --filter @robotspace/db test:registry --fresh-only
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Static checks
+        run: pnpm lint
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Dependency audit (high and critical)
+        run: pnpm audit --prod --audit-level high

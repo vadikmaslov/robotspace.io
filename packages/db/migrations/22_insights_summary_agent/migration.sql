@@ -1,0 +1,3 @@
+INSERT INTO scheduled_agents(agent_key,display_name,description,cron_expression,is_enabled,run_mode,site_area,agent_role,parent_agent_key,source_keys,task_complexity,implementation_status)
+VALUES('insights-summary-writer','Insights summary writer','Creates an original short list summary and detailed source-attributed overview from transient article text. Raw article HTML is never stored.','25 */6 * * *',true,'SCHEDULED','INSIGHTS','PROCESSOR','insights-orchestrator','["techxplore-robotics","robotics-247","robotics-automation-news","robohub","humanoid-guide-news","the-robot-report"]'::jsonb,'COMPLEX','READY')
+ON CONFLICT(agent_key) DO UPDATE SET implementation_status='READY',is_enabled=true,cron_expression='25 */6 * * *',updated_at=now();

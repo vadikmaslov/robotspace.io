@@ -1,0 +1,27 @@
+{
+  "name": "@robotspace/worker",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@robotspace/config": "workspace:*",
+    "@robotspace/db": "workspace:*",
+    "@robotspace/domain": "workspace:*",
+    "@robotspace/ai": "workspace:*",
+    "@robotspace/ingestion": "workspace:*",
+    "@robotspace/observability": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1095.0",
+    "pg-boss": "^10.1.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "eslint": "^9.38.0",
+    "@types/node": "^24.10.0"
+  }
+}

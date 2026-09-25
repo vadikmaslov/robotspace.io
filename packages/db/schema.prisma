@@ -1,0 +1,1151 @@
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_users {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status String @default("ACTIVE")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_accounts {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id String @db.Uuid
+  provider String
+  provider_account_id String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([provider, provider_account_id])
+  @@unique([user_id, provider])
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_roles {
+  user_id String @db.Uuid
+  role String
+  @@id([user_id, role])
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model developer_profiles {
+  user_id String @id @db.Uuid
+  entity_id String @unique @db.Uuid
+  handle String @unique @db.VarChar(100)
+  display_name String? @db.VarChar(255)
+  bio String?
+  reputation Int @default(0)
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model entity_claims {
+  @@index([claimant_id, status], map: "registry_claim_user")
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_id String @db.Uuid
+  claimant_id String @db.Uuid
+  status String @default("PENDING")
+  proof_url String @db.VarChar(2000)
+  verification_method String? @db.VarChar(100)
+  reviewed_by String? @db.Uuid
+  checked_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_evidence {
+  @@index([entity_id], map: "registry_evidence_entity")
+  @@index([compatibility_id], map: "registry_evidence_compat")
+  @@index([claim_id], map: "registry_evidence_claim")
+  @@index([assertion_id], map: "registry_evidence_assertion")
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_id String? @db.Uuid
+  compatibility_id String? @db.Uuid
+  claim_id String? @db.Uuid
+  assertion_id String? @db.Uuid
+  source_key String? @db.VarChar(100)
+  origin_id String? @db.Uuid
+  submitted_by String? @db.Uuid
+  url String @db.VarChar(2000)
+  kind String
+  confidence Decimal? @db.Decimal(4,3)
+  observed_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model compatibility_confirmations {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  compatibility_id String @db.Uuid
+  user_id String @db.Uuid
+  evidence_id String @db.Uuid
+  verdict String
+  status String @default("PENDING")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([compatibility_id, user_id])
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_changes {
+  @@index([entity_id, created_at], map: "registry_changes_entity")
+  @@index([compatibility_id, created_at], map: "registry_changes_compat")
+  @@index([claim_id, created_at], map: "registry_changes_claim")
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_id String? @db.Uuid
+  compatibility_id String? @db.Uuid
+  claim_id String? @db.Uuid
+  actor_id String? @db.Uuid
+  source_key String? @db.VarChar(100)
+  evidence_id String? @db.Uuid
+  action String
+  before_value Json?
+  after_value Json?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model registry_corrections {
+  @@index([status, created_at], map: "registry_corrections_queue")
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_id String @db.Uuid
+  user_id String @db.Uuid
+  evidence_id String @db.Uuid
+  proposed_value Json
+  status String @default("PENDING")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model registry_imports {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  repository_url     String    @unique @db.VarChar(2000)
+  repository_id      BigInt?  @unique
+  project_id         String?  @db.Uuid
+  state              String    @default("QUEUED") @db.VarChar(20)
+  attempt_count      Int       @default(0)
+  next_retry_at      DateTime? @db.Timestamptz(6)
+  last_error_code    String?  @db.VarChar(80)
+  last_error_message String?  @db.VarChar(500)
+  manifest_version   Int?
+  metadata_json      Json     @default("{}")
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([state, next_retry_at], map: "registry_imports_state_retry")
+}
+
+model registry_login_grants {
+  user_id String @id @db.Uuid
+  ciphertext Bytes
+  nonce Bytes
+  auth_tag Bytes
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@index([expires_at], map: "registry_login_grants_expiry")
+}
+
+model registry_claim_attempts {
+  user_id String @db.Uuid
+  window_start DateTime @db.Timestamptz(6)
+  attempt_count Int @default(1)
+  @@id([user_id, window_start])
+  @@index([window_start], map: "registry_claim_attempts_window")
+}
+
+/// Foreign keys, checks and partial indexes are managed by migration 36.
+model repository_snapshots {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String @db.Uuid
+  observed_at DateTime @default(now()) @db.Timestamptz(6)
+  stars Int?
+  forks Int?
+  open_issues Int?
+  latest_release String? @db.VarChar(255)
+  last_commit_at DateTime? @db.Timestamptz(6)
+  sync_status String
+  @@unique([project_id, observed_at])
+}
+
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_DATABASE_URL")
+  relationMode = "prisma"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model admin_users {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String    @unique @db.VarChar(255)
+  status              String    @default("PUBLISHED") @db.VarChar(20)
+  email_verified_at   DateTime? @db.Timestamptz(6)
+  created_by_admin_id String?   @db.Uuid
+  last_login_at       DateTime? @db.Timestamptz(6)
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model agent_runs {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operation             String    @db.VarChar(50)
+  entity_type           String?   @db.VarChar(30)
+  entity_id             String?   @db.Uuid
+  parent_run_id         String?   @db.Uuid
+  input_hash            String?   @db.VarChar(64)
+  output_schema_version String?   @db.VarChar(50)
+  prompt_version        String?   @db.VarChar(50)
+  ai_request_id         String?   @db.Uuid
+  state                 String    @default("PENDING") @db.VarChar(20)
+  idempotency_key       String?   @db.VarChar(100)
+  attempt               Int       @default(0)
+  max_attempts          Int       @default(3)
+  lease_owner           String?   @db.VarChar(255)
+  lease_expires         DateTime? @db.Timestamptz(6)
+  result_assertion_id   String?   @db.Uuid
+  exception_id          String?   @db.Uuid
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  started_at            DateTime? @db.Timestamptz(6)
+  finished_at           DateTime? @db.Timestamptz(6)
+  error_code            String?   @db.VarChar(50)
+
+  @@index([operation, state], map: "idx_agent_op_state")
+  @@index([parent_run_id], map: "idx_agent_parent")
+  @@index([state, created_at], map: "idx_agent_state_date")
+}
+
+/// Durable registry for scheduled source agents and their orchestration tree.
+model scheduled_agents {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_key             String   @unique @db.VarChar(100)
+  display_name          String   @db.VarChar(255)
+  description           String
+  cron_expression       String?  @db.VarChar(100)
+  is_enabled            Boolean  @default(false)
+  run_mode              String   @default("SCHEDULED") @db.VarChar(20)
+  site_area             String   @default("GENERAL") @db.VarChar(30)
+  agent_role            String   @default("COLLECTOR") @db.VarChar(20)
+  parent_agent_key      String?  @db.VarChar(100)
+  source_keys           Json     @default("[]")
+  task_complexity       String   @default("SIMPLE") @db.VarChar(10)
+  implementation_status String   @default("READY") @db.VarChar(20)
+  last_scheduled_at     DateTime? @db.Timestamptz(6)
+  last_started_at       DateTime? @db.Timestamptz(6)
+  last_finished_at      DateTime? @db.Timestamptz(6)
+  last_state            String?  @db.VarChar(20)
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([site_area, parent_agent_key], map: "idx_scheduled_agents_area_parent")
+}
+
+model ai_models {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id     String?   @db.Uuid
+  remote_model_id String    @db.VarChar(100)
+  display_name    String?   @db.VarChar(255)
+  enabled         Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([provider_id, remote_model_id])
+}
+
+model ai_provider_credentials {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id   String?   @db.Uuid
+  api_key_plain String?   @db.VarChar(500)
+  last_4        String?   @db.VarChar(4)
+  status        String?   @default("ACTIVE") @db.VarChar(20)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model ai_providers {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adapter_type       String    @db.VarChar(30)
+  display_name       String    @db.VarChar(255)
+  base_url           String?   @db.VarChar(2000)
+  enabled            Boolean?  @default(true)
+  request_timeout_ms Int?      @default(60000)
+  health_status      String?   @default("UNKNOWN") @db.VarChar(20)
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ai_requests {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_run_id             String?   @db.Uuid
+  route_model_id           String?   @db.Uuid
+  route_provider           String?   @db.VarChar(50)
+  route_credential_version Int?      @default(1)
+  idempotency_key          String    @db.VarChar(100)
+  status                   String    @default("QUEUED") @db.VarChar(20)
+  input_hash               String?   @db.VarChar(64)
+  output_hash              String?   @db.VarChar(64)
+  tokens_used              BigInt    @default(0)
+  estimated_cost           Decimal   @default(0) @db.Decimal(10, 6)
+  latency_ms               BigInt?
+  fallback_parent_id       String?   @db.Uuid
+  fallback_reason          String?   @db.VarChar(100)
+  error_code               String?   @db.VarChar(50)
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  started_at               DateTime? @db.Timestamptz(6)
+  finished_at              DateTime? @db.Timestamptz(6)
+
+  @@index([route_provider, status], map: "idx_ai_provider_status")
+  @@index([status, created_at], map: "idx_ai_status_date")
+}
+
+model ai_routes {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope        String?   @default("SIMPLE_DEFAULT") @db.VarChar(30)
+  model_id     String    @db.Uuid
+  rank         Int?      @default(0)
+  enabled      Boolean?  @default(true)
+  max_attempts Int?      @default(3)
+  timeout_ms   Int?      @default(60000)
+  cooldown_ms  Int?      @default(60000)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model article_previews {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  article_id             String   @db.Uuid
+  preview_en             String
+  generation_mode        String   @default("METADATA_ONLY") @db.VarChar(20)
+  request_id             String?  @db.Uuid
+  prompt_version         String?  @db.VarChar(50)
+  publication_confidence Decimal? @db.Decimal(4, 2)
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([article_id], map: "idx_previews_article")
+}
+
+model articles {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id                 String?  @db.VarChar(100)
+  external_id               String?  @db.VarChar(255)
+  guid                      String?  @db.VarChar(500)
+  canonical_url             String   @unique @db.VarChar(2000)
+  title                     String
+  authors                   String?
+  published_at              DateTime @db.Timestamptz(6)
+  categories                Json?
+  language                  String   @default("en") @db.Char(2)
+  metadata_hash             String?  @db.VarChar(64)
+  full_text_storage_allowed Boolean  @default(true)
+  image_url                 String?  @db.VarChar(2000)
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([full_text_storage_allowed], map: "idx_articles_fulltext_allowed")
+  @@index([source_id, published_at], map: "idx_articles_source_pub")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attribute_definition_versions {
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attribute_definition_id    String   @db.Uuid
+  taxonomy_schema_version_id String   @db.Uuid
+  label_en                   String   @db.VarChar(255)
+  description_en             String?
+  data_type                  String   @db.VarChar(30)
+  dimension                  String   @default("NONE") @db.VarChar(20)
+  canonical_unit             String?  @db.VarChar(20)
+  enum_options_json          Json?
+  is_filterable              Boolean  @default(false)
+  is_sortable                Boolean  @default(false)
+  is_public                  Boolean  @default(true)
+  is_comparable              Boolean  @default(true)
+  higher_is_better           Boolean?
+  validation_schema_json     Json?
+  absolute_tolerance         Decimal? @db.Decimal(10, 6)
+  relative_tolerance         Decimal? @db.Decimal(10, 6)
+  created_at                 DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([attribute_definition_id, taxonomy_schema_version_id], map: "uq_attr_def_schema")
+  @@index([taxonomy_schema_version_id], map: "idx_attr_def_schema")
+}
+
+model attribute_definitions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String   @unique @db.VarChar(100)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model audit_logs {
+  id              BigInt   @id @default(autoincrement())
+  timestamp       DateTime @default(now()) @db.Timestamptz(6)
+  actor_type      String   @db.VarChar(20)
+  actor_id        String?  @db.VarChar(255)
+  action          String   @db.VarChar(100)
+  target_type     String?  @db.VarChar(50)
+  target_id       String?  @db.VarChar(255)
+  request_id      String?  @db.Uuid
+  before_hash     String?  @db.VarChar(64)
+  after_hash      String?  @db.VarChar(64)
+  safe_diff_json  Json?
+  prev_entry_hash String?  @db.VarChar(64)
+  entry_hash      String?  @db.VarChar(64)
+
+  @@index([actor_type, actor_id], map: "idx_audit_actor")
+  @@index([target_type, target_id], map: "idx_audit_target")
+  @@index([timestamp(sort: Desc)], map: "idx_audit_ts")
+}
+
+model categories {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parent_id      String?   @db.Uuid
+  slug           String    @unique @db.VarChar(100)
+  name_en        String    @db.VarChar(255)
+  description_en String?
+  icon_key       String?   @db.VarChar(50)
+  sort_order     Int       @default(0)
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  archived_at    DateTime? @db.Timestamptz(6)
+
+  @@index([is_active, sort_order], map: "idx_categories_active_sort")
+  @@index([slug], map: "idx_categories_slug")
+}
+
+model category_attributes {
+  id                              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_schema_version_id      String  @db.Uuid
+  attribute_definition_version_id String  @db.Uuid
+  is_required_for_publish         Boolean @default(false)
+  is_required_for_compare         Boolean @default(false)
+  display_group                   String? @db.VarChar(100)
+  display_order                   Int     @default(0)
+  public_confidence_threshold     Decimal @default(0.90) @db.Decimal(4, 2)
+
+  @@unique([category_schema_version_id, attribute_definition_version_id], map: "uq_cat_attr")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model category_schema_versions {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id                String    @db.Uuid
+  taxonomy_schema_version_id String    @db.Uuid
+  category_local_version     BigInt
+  content_hash               String    @db.VarChar(64)
+  status                     String    @default("DRAFT") @db.VarChar(20)
+  published_at               DateTime? @db.Timestamptz(6)
+  compatibility_group        String    @default("COMPATIBLE") @db.VarChar(20)
+  compatibility_version      String?   @db.VarChar(50)
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([category_id, category_local_version], map: "uq_category_schema_ver")
+  @@index([taxonomy_schema_version_id, category_id], map: "idx_cat_schema_taxonomy")
+}
+
+model certifications {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type        String    @db.VarChar(30)
+  entity_id          String    @db.Uuid
+  authority          String    @db.VarChar(255)
+  certification_type String    @db.VarChar(30)
+  certificate_id     String?   @db.VarChar(255)
+  issued_at          DateTime  @db.Timestamptz(6)
+  expires_at         DateTime? @db.Timestamptz(6)
+  status             String    @default("PUBLISHED") @db.VarChar(20)
+  evidence_url       String?   @db.VarChar(2000)
+  confidence         Decimal?  @db.Decimal(4, 2)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity_type, entity_id], map: "idx_certs_entity")
+}
+
+model companies {
+  entity_id String @id @db.Uuid
+}
+
+model company_public_projections {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_entity_id String    @unique @db.Uuid
+  canonical_name    String    @db.VarChar(255)
+  status            String    @default("ACTIVE") @db.VarChar(20)
+  official_url      String?   @db.VarChar(2000)
+  official_url_verified_at DateTime? @db.Timestamptz(6)
+  official_url_verification_method String? @db.VarChar(40)
+  country_code      String?   @db.Char(2)
+  founded_year      Int?
+  summary           String?
+  image_url         String?   @db.VarChar(2000)
+  unibot_id         String?   @db.VarChar(50)
+  primary_media_id  String?   @db.Uuid
+  last_verified_at  DateTime? @db.Timestamptz(6)
+  projection_hash   String?   @db.VarChar(64)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model company_type_assignments {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_entity_id String   @db.Uuid
+  company_type_id   String   @db.Uuid
+  assigned_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([company_entity_id, company_type_id], map: "uq_company_type")
+}
+
+model company_types {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type_name  String   @unique @db.VarChar(30)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model comparison_snapshots {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  share_id                String   @unique @db.VarChar(32)
+  robot_entity_ids        Json
+  category_schema_version String   @db.VarChar(50)
+  taxonomy_schema_version String   @db.VarChar(50)
+  rendered_values_json    Json
+  policy_revision         BigInt   @default(1)
+  created_at              DateTime @default(now()) @db.Timestamptz(6)
+  expires_at              DateTime @db.Timestamptz(6)
+
+  @@index([expires_at], map: "idx_comp_snap_expires")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model compatibility_claims {
+  project_id String? @db.Uuid
+  robot_id String? @db.Uuid
+  requirements Json @default("{}")
+  revision Int @default(1)
+  supersedes_id String? @db.Uuid
+  created_by String? @db.Uuid
+  @@index([project_id, robot_id], map: "registry_compat_pair")
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subject_type          String    @db.VarChar(30)
+  subject_entity_id     String    @db.Uuid
+  object_type           String    @db.VarChar(30)
+  object_entity_id      String    @db.Uuid
+  type                  String    @db.VarChar(30)
+  subject_version_range String?   @db.VarChar(100)
+  object_version_range  String?   @db.VarChar(100)
+  claim_status          String    @default("CLAIMED") @db.VarChar(20)
+  evidence_url          String?   @db.VarChar(2000)
+  checked_at            DateTime? @db.Timestamptz(6)
+  confidence            Decimal?  @db.Decimal(4, 2)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([object_type, object_entity_id], map: "idx_compat_object")
+  @@index([subject_type, subject_entity_id], map: "idx_compat_subject")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model documents {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type    String    @db.VarChar(30)
+  entity_id      String    @db.Uuid
+  type           String    @db.VarChar(20)
+  source_url     String    @db.VarChar(2000)
+  s3_key         String?   @db.VarChar(2000)
+  legal_status   String    @default("UNKNOWN") @db.VarChar(20)
+  language       String    @default("en") @db.Char(2)
+  version        String?   @db.VarChar(50)
+  published_date DateTime? @db.Timestamptz(6)
+  hash_sha256    String?   @db.VarChar(64)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity_type, entity_id], map: "idx_documents_entity")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model entities {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type             String    @db.VarChar(30)
+  slug                    String    @unique @db.VarChar(255)
+  publication_status      String    @default("DRAFT") @db.VarChar(20)
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @db.Timestamptz(6)
+  archived_at             DateTime? @db.Timestamptz(6)
+  superseded_by_entity_id String?   @db.Uuid
+
+  @@index([slug], map: "idx_entities_slug")
+  @@index([entity_type, publication_status, archived_at], map: "idx_entities_type_pub_archived")
+}
+
+model entity_aliases {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type      String?   @db.VarChar(30)
+  entity_id        String?   @db.Uuid
+  normalized_alias String?   @db.VarChar(255)
+  alias            String?   @db.VarChar(255)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model entity_mentions {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  article_id     String?  @db.Uuid
+  publication_id String?  @db.Uuid
+  entity_type    String?  @db.VarChar(30)
+  entity_id      String?  @db.Uuid
+  mention_type   String?  @db.VarChar(30)
+  confidence     Decimal? @db.Decimal(4, 2)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([entity_type, entity_id], map: "idx_mentions_entity")
+}
+
+model evidence_dependency_edges {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  graph_version_id String   @db.Uuid
+  child_origin_id  String   @db.Uuid
+  parent_origin_id String   @db.Uuid
+  relation         String   @db.VarChar(30)
+  created_metadata Json?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([graph_version_id, child_origin_id, parent_origin_id, relation], map: "uq_edge")
+  @@index([graph_version_id, child_origin_id], map: "idx_edges_graph_child")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model evidence_dependency_graph_versions {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version_number BigInt    @unique
+  content_hash   String    @db.VarChar(64)
+  status         String    @default("DRAFT") @db.VarChar(20)
+  published_at   DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([status, version_number], map: "idx_edgv_status_num")
+}
+
+model evidence_origins {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  origin_key        String   @unique @db.VarChar(500)
+  origin_type       String   @db.VarChar(50)
+  primary_owner     String?  @db.VarChar(255)
+  primary_source_id String?  @db.Uuid
+  first_observed_at DateTime @default(now()) @db.Timestamptz(6)
+  last_observed_at  DateTime @db.Timestamptz(6)
+
+  @@index([origin_key], map: "idx_evidence_origin_key")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model exceptions {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dedup_key         String    @unique @db.VarChar(255)
+  type              String    @db.VarChar(30)
+  severity          String    @default("medium") @db.VarChar(20)
+  entity_type       String?   @db.VarChar(30)
+  entity_id         String?   @db.Uuid
+  run_id            String?   @db.Uuid
+  reason_summary    String
+  state             String    @default("OPEN") @db.VarChar(20)
+  resolution_actor  String?   @db.VarChar(255)
+  resolution_action String?   @db.VarChar(50)
+  next_retry_at     DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  resolved_at       DateTime? @db.Timestamptz(6)
+
+  @@index([state, severity], map: "idx_exceptions_state_sev")
+  @@index([type, state], map: "idx_exceptions_type_state")
+}
+
+model feature_flags {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String   @db.VarChar(100)
+  environment     String   @default("all") @db.VarChar(50)
+  enabled         Boolean  @default(false)
+  config_json     Json     @default("{}")
+  policy_revision BigInt   @default(1)
+  updated_by      String?  @db.VarChar(255)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([key, environment])
+}
+
+model field_assertions {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type           String?   @db.VarChar(30)
+  entity_id             String?   @db.Uuid
+  field_key             String?   @db.VarChar(100)
+  normalized_value_json Json?
+  raw_value_json        Json?
+  source_id             String?   @db.Uuid
+  observed_at           DateTime? @default(now()) @db.Timestamptz(6)
+  evidence_confidence   Decimal?  @default(0.65) @db.Decimal(4, 2)
+  assertion_status      String?   @default("ACCEPTED") @db.VarChar(20)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ingestion_runs {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id         String    @db.VarChar(100)
+  schedule_revision BigInt?
+  cursor_revision   BigInt?
+  policy_revision   BigInt    @default(1)
+  idempotency_key   String    @unique @db.VarChar(100)
+  state             String    @default("SCHEDULED") @db.VarChar(20)
+  lease_owner       String?   @db.VarChar(255)
+  lease_expires     DateTime? @db.Timestamptz(6)
+  heartbeat_at      DateTime? @db.Timestamptz(6)
+  discovered_count  Int       @default(0)
+  fetched_count     Int       @default(0)
+  unchanged_count   Int       @default(0)
+  parsed_count      Int       @default(0)
+  accepted_count    Int       @default(0)
+  quarantined_count Int       @default(0)
+  failed_count      Int       @default(0)
+  started_at        DateTime  @default(now()) @db.Timestamptz(6)
+  finished_at       DateTime? @db.Timestamptz(6)
+  error_code        String?   @db.VarChar(50)
+
+  @@index([idempotency_key], map: "idx_ingestion_idem")
+  @@index([source_id, state], map: "idx_ingestion_src_state")
+  @@index([state, started_at], map: "idx_ingestion_state_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model media_assets {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type        String    @db.VarChar(30)
+  entity_id          String    @db.Uuid
+  s3_key             String    @db.VarChar(2000)
+  original_url       String?   @db.VarChar(2000)
+  source_landing_url String?   @db.VarChar(2000)
+  mime_type          String?   @db.VarChar(100)
+  size_bytes         BigInt?
+  width              Int?
+  height             Int?
+  hash_sha256        String?   @db.VarChar(64)
+  media_type         String    @db.VarChar(20)
+  license_status     String    @default("UNKNOWN") @db.VarChar(20)
+  owner              String?   @db.VarChar(255)
+  author             String?   @db.VarChar(255)
+  attribution        String?
+  license_url        String?   @db.VarChar(2000)
+  checked_at         DateTime? @db.Timestamptz(6)
+  is_primary         Boolean   @default(false)
+  hidden_at          DateTime? @db.Timestamptz(6)
+  takedown_at        DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity_type, entity_id], map: "idx_media_entity")
+  @@index([license_status, media_type], map: "idx_media_license_type")
+  @@index([is_primary], map: "idx_media_primary")
+}
+
+model metric_definitions {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key               String   @unique @db.VarChar(100)
+  display_name      String   @db.VarChar(255)
+  description_en    String
+  formula_version   String   @db.VarChar(50)
+  min_sources       Int      @default(3)
+  min_observations  Int      @default(30)
+  freshness_hours   Int?     @default(720)
+  publish_threshold Decimal  @default(0.80) @db.Decimal(4, 2)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model metric_observations {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  metric_id       String   @db.Uuid
+  dimensions_json Json
+  value_numeric   Decimal? @db.Decimal(18, 6)
+  unit            String?  @db.VarChar(20)
+  observed_at     DateTime @db.Timestamptz(6)
+  confidence      Decimal  @db.Decimal(4, 2)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([metric_id, observed_at], map: "idx_metrics_obs")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                  String    @db.VarChar(50)
+  severity              String    @default("medium") @db.VarChar(20)
+  recipient_setting_key String    @db.VarChar(50)
+  dedup_key             String    @db.VarChar(255)
+  state                 String    @default("QUEUED") @db.VarChar(20)
+  attempt_count         Int       @default(0)
+  max_attempts          Int       @default(3)
+  next_attempt_at       DateTime? @db.Timestamptz(6)
+  template_version      String?   @db.VarChar(20)
+  provider_msg_id       String?   @db.VarChar(255)
+  sent_at               DateTime? @db.Timestamptz(6)
+  error_timestamp       DateTime? @db.Timestamptz(6)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([severity, state], map: "idx_notif_sev_state")
+  @@index([state, created_at], map: "idx_notif_state_date")
+}
+
+model publications {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  arxiv_id       String?   @db.VarChar(50)
+  openalex_id    String?   @db.VarChar(50)
+  crossref_doi   String?   @unique @db.VarChar(255)
+  title          String
+  abstract_      String?
+  pub_date       DateTime? @db.Timestamptz(6)
+  citation_count Int       @default(0)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quote_requests {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  robot_entity_id           String?   @db.Uuid
+  company_entity_id         String?   @db.Uuid
+  contact_name              String    @db.VarChar(255)
+  company_name              String?   @db.VarChar(255)
+  email                     String    @db.VarChar(255)
+  email_verification_status String    @default("UNVERIFIED") @db.VarChar(30)
+  phone                     String?   @db.VarChar(50)
+  country                   String?   @db.Char(2)
+  message                   String?
+  consent_version           String    @db.VarChar(50)
+  consent_timestamp         DateTime  @db.Timestamptz(6)
+  status                    String    @default("NEW") @db.VarChar(20)
+  notification_sent         Boolean   @default(false)
+  spam_score                Decimal?  @db.Decimal(4, 2)
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  sent_at                   DateTime? @db.Timestamptz(6)
+
+  @@index([email_verification_status], map: "idx_quotes_email_verify")
+  @@index([status, created_at], map: "idx_quotes_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model readiness_snapshots {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  feature             String   @db.VarChar(20)
+  coverage_metrics    Json
+  required_thresholds Json
+  is_ready            Boolean  @default(false)
+  blockers_json       Json     @default("[]")
+  calculated_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([feature, calculated_at], map: "idx_readiness_feature_date")
+}
+
+model recalls {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  safety_notice_id    String   @db.Uuid
+  status              String   @default("ACTIVE") @db.VarChar(20)
+  recall_at           DateTime @db.Timestamptz(6)
+  matching_confidence Decimal? @db.Decimal(4, 2)
+  evidence_url        String?  @db.VarChar(2000)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model robot_company_relations {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  robot_entity_id   String?   @db.Uuid
+  company_entity_id String?   @db.Uuid
+  relation          String?   @db.VarChar(30)
+  evidence_url      String?   @db.VarChar(1000)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([robot_entity_id, company_entity_id, relation])
+}
+
+model robot_public_projections {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  robot_entity_id         String    @unique @db.Uuid
+  canonical_name          String    @db.VarChar(255)
+  manufacturer_entity_id  String?   @db.Uuid
+  taxonomy_schema_version String?   @db.VarChar(50)
+  category_id             String?   @db.VarChar(50)
+  lifecycle_status        String    @default("ACTIVE") @db.VarChar(20)
+  release_date            DateTime? @db.Timestamptz(6)
+  official_url            String?   @db.VarChar(2000)
+  summary                 String?
+  primary_media_id        String?   @db.Uuid
+  last_verified_at        DateTime? @db.Timestamptz(6)
+  projection_hash         String?   @db.VarChar(64)
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @db.Timestamptz(6)
+  payload_kg              Decimal?  @db.Decimal(10, 2)
+  reach_mm                Decimal?  @db.Decimal(10, 2)
+  weight_kg               Decimal?  @db.Decimal(10, 2)
+  image_url               String?   @db.VarChar(2000)
+  unibot_id               String?   @db.VarChar(50)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model robot_variants {
+  entity_id       String @id @db.Uuid
+  robot_entity_id String @db.Uuid
+  status          String @default("DRAFT") @db.VarChar(20)
+
+  @@index([robot_entity_id], map: "idx_robot_variants_parent")
+}
+
+model robots {
+  entity_id  String   @id @db.Uuid
+  created_by String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model safety_notices {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  regulator          String    @db.VarChar(255)
+  external_notice_id String?   @db.VarChar(255)
+  notice_type        String    @db.VarChar(30)
+  title              String
+  summary            String?
+  hazard             String?
+  remedy             String?
+  issued_at          DateTime  @db.Timestamptz(6)
+  updated_at         DateTime? @db.Timestamptz(6)
+  jurisdiction       String?   @db.Char(2)
+  source_url         String?   @db.VarChar(2000)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([notice_type, issued_at], map: "idx_safety_type_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model software_packages {
+  entity_id String? @unique @db.Uuid
+  description String?
+  project_type String @default("tool")
+  origin_status String @default("COMMUNITY")
+  verification_status String @default("DISCOVERED")
+  github_repository_id BigInt? @unique
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@index([project_type, verification_status], map: "registry_project_type")
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canonical_name   String    @db.VarChar(255)
+  ecosystem        String    @db.VarChar(30)
+  repository_url   String?   @db.VarChar(2000)
+  homepage_url     String?   @db.VarChar(2000)
+  license_id       String?   @db.VarChar(100)
+  status           String    @default("DRAFT") @db.VarChar(20)
+  last_verified_at DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([canonical_name], map: "idx_sw_packages_name")
+}
+
+model software_releases {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  software_id    String    @db.Uuid
+  version        String    @db.VarChar(100)
+  release_tag    String?   @db.VarChar(100)
+  release_date   DateTime? @db.Timestamptz(6)
+  support_status String    @default("current") @db.VarChar(30)
+
+  @@unique([software_id, version], map: "uq_sw_release")
+}
+
+model source_contracts {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_key               String?   @db.VarChar(100)
+  owner_contact            String?   @db.VarChar(255)
+  canonical_endpoint       String    @db.VarChar(2000)
+  access_mode              String    @db.VarChar(50)
+  legal_basis              String
+  terms_url                String?   @db.VarChar(2000)
+  terms_checked_at         DateTime? @db.Timestamptz(6)
+  terms_content_hash       String?   @db.VarChar(64)
+  allowed_fields           Json
+  allowed_operations       Json
+  raw_retention_policy     String    @db.VarChar(100)
+  publication_policy       String
+  credential_binding_id    String?   @db.Uuid
+  rate_limit_strategy      String?   @db.VarChar(100)
+  stable_id_strategy       String?   @db.VarChar(100)
+  cursor_or_watermark      String?   @db.VarChar(100)
+  parser_version           String?   @db.VarChar(20)
+  schema_version           String?   @db.VarChar(20)
+  freshness_sla_hours      Int?      @default(30)
+  confidence_caps_by_field Json?
+  derived_from_sources     Json?     @default("[]")
+  attribution_template     String?
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([source_key], map: "idx_source_contracts_key")
+}
+
+model source_credential_bindings {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contract_id         String?   @db.Uuid
+  credential_id       String?   @db.Uuid
+  normalized_origin   String?   @db.VarChar(1000)
+  allowed_path_prefix String?   @db.VarChar(500)
+  auth_mechanism      String?   @db.VarChar(50)
+  active_from         DateTime  @default(now()) @db.Timestamptz(6)
+  active_until        DateTime? @db.Timestamptz(6)
+  is_active           Boolean   @default(true)
+
+  @@unique([contract_id, credential_id, auth_mechanism], map: "uq_cred_binding")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model source_credentials {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id               String?   @db.VarChar(100)
+  credential_type         String    @db.VarChar(20)
+  encrypted_payload       Bytes
+  nonce_auth_tag          Bytes
+  integration_key_version String    @default("v1") @db.VarChar(10)
+  safe_label              String?   @db.VarChar(50)
+  status                  String    @default("ACTIVE") @db.VarChar(20)
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  last_tested_at          DateTime? @db.Timestamptz(6)
+  revoked_at              DateTime? @db.Timestamptz(6)
+}
+
+model source_records {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_id       String?  @db.VarChar(100)
+  external_id     String?  @db.VarChar(255)
+  canonical_url   String   @db.VarChar(2000)
+  source_revision String?  @db.VarChar(100)
+  payload_hash    String?  @db.VarChar(64)
+  first_seen_at   DateTime @default(now()) @db.Timestamptz(6)
+  last_seen_at    DateTime @db.Timestamptz(6)
+  parse_status    String   @default("pending") @db.VarChar(30)
+  raw_snapshot_id String?  @db.Uuid
+  metadata_json   Json     @default("{}")
+
+  @@unique([source_id, external_id, source_revision], map: "uq_source_record")
+  @@index([source_id, parse_status], map: "idx_source_records_src_parse")
+  @@index([canonical_url], map: "idx_source_records_url")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sources {
+  key                      String    @id @db.VarChar(100)
+  display_name             String?   @db.VarChar(255)
+  owner_name               String?   @db.VarChar(255)
+  homepage_url             String?   @db.VarChar(2000)
+  logo_url                 String?   @db.VarChar(2000)
+  content_area             String    @default("GENERAL") @db.VarChar(30)
+  admin_description        String?
+  public_description       String?
+  is_public                Boolean   @default(false)
+  tier                     String    @default("D") @db.VarChar(1)
+  source_type              String    @db.VarChar(20)
+  status                   String    @default("PROPOSED") @db.VarChar(20)
+  legal_status             String    @default("UNKNOWN") @db.VarChar(20)
+  risk_acknowledged_by     String?   @db.VarChar(255)
+  risk_acknowledged_at     DateTime? @db.Timestamptz(6)
+  schedule                 String?   @db.VarChar(100)
+  rate_limit_rpm           Int?      @default(10)
+  trust_default_confidence Decimal   @default(0.50) @db.Decimal(4, 2)
+  kill_switch              Boolean   @default(false)
+  policy_revision          BigInt    @default(1)
+  last_success_at          DateTime? @db.Timestamptz(6)
+  last_error_at            DateTime? @db.Timestamptz(6)
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([kill_switch], map: "idx_sources_kill_switch")
+  @@index([content_area, is_public], map: "idx_sources_area_public")
+  @@index([status, legal_status], map: "idx_sources_status_legal")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model submissions {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type             String    @db.VarChar(30)
+  payload_json     Json
+  submitter_email  String?   @db.VarChar(255)
+  source_urls      Json?     @default("[]")
+  captcha_result   String?
+  status           String    @default("RECEIVED") @db.VarChar(20)
+  linked_entity_id String?   @db.Uuid
+  agent_run_id     String?   @db.Uuid
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at     DateTime? @db.Timestamptz(6)
+
+  @@index([status, created_at], map: "idx_submissions_status")
+}
+
+model system_settings {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String   @unique @db.VarChar(100)
+  value_json      Json
+  schema_version  Int      @default(1)
+  optimistic_lock Int      @default(0)
+  updated_by      String?  @db.VarChar(255)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model taxonomy_schema_versions {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version_number BigInt    @unique
+  content_hash   String    @db.VarChar(64)
+  status         String    @default("DRAFT") @db.VarChar(20)
+  published_at   DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  created_by     String?   @db.VarChar(255)
+
+  @@index([status, version_number], map: "idx_taxonomy_versions_status_num")
+}
+
+model trend_snapshots {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_entity_type  String?  @db.VarChar(30)
+  target_entity_id    String?  @db.Uuid
+  window_start        DateTime @db.Timestamptz(6)
+  window_end          DateTime @db.Timestamptz(6)
+  raw_mention_count   Int      @default(0)
+  normalized_score    Decimal? @db.Decimal(10, 6)
+  methodology_version String?  @db.VarChar(50)
+  ai_narrative        String?
+  publish_readiness   Boolean  @default(false)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([target_entity_type, target_entity_id, window_start], map: "idx_trends_target")
+}
+
+// ============================================================
+// Unibot Integration — import config + cached catalog data
+// ============================================================
+
+model unibot_import_config {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  feed_url            String   @default("https://unibot.ru/local/gadgets/maslov/catalog_export/catalog.php") @db.VarChar(2000)
+  cron_expression     String   @default("0 */6 * * *") @db.VarChar(100)
+  is_enabled          Boolean  @default(true)
+  last_sync_at        DateTime? @db.Timestamptz(6)
+  last_sync_status    String?  @db.VarChar(50)
+  last_sync_count     Int      @default(0)
+  last_error          String?
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model unibot_catalog_cache {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  unibot_id       String   @db.VarChar(50)
+  entity_type     String   @db.VarChar(20)
+  name            String   @db.VarChar(500)
+  name_en         String?  @db.VarChar(500)
+  code            String?  @db.VarChar(255)
+  section_name    String?  @db.VarChar(500)
+  section_name_en String?  @db.VarChar(500)
+  brand_name      String?  @db.VarChar(500)
+  brand_name_en   String?  @db.VarChar(500)
+  country_ru      String?  @db.VarChar(100)
+  country_code    String?  @db.Char(2)
+  picture_url     String?  @db.VarChar(2000)
+  page_url        String?  @db.VarChar(2000)
+  price_rub       Int?
+  raw_json        Json
+  matched_robot_id   String?  @db.Uuid
+  matched_company_id String?  @db.Uuid
+  match_confidence   Decimal? @db.Decimal(4, 2)
+  last_seen_at    DateTime @default(now()) @db.Timestamptz(6)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([unibot_id, entity_type], map: "idx_unibot_cache_id_type")
+  @@index([matched_robot_id], map: "idx_unibot_cache_matched_robot")
+  @@index([matched_company_id], map: "idx_unibot_cache_matched_company")
+}
