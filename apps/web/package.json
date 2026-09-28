@@ -17,16 +17,16 @@
     "@robotspace/domain": "workspace:*",
     "@robotspace/observability": "workspace:*",
     "@robotspace/ui": "workspace:*",
-    "next": "^16.2.11",
+    "next": "^16.3.3",
     "next-auth": "5.0.0-beta.32",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^9.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.2",
     "@typescript-eslint/parser": "^8.65.0",
     "eslint": "^9.38.0",
     "typescript": "^5.9.3"
