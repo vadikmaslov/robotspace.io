@@ -1,5 +1,8 @@
 import { prisma } from '@robotspace/db'
 import Link from 'next/link'
+import { catalogParams, catalogPageUrl, numberRange, type CatalogParams } from '../../lib/catalog-params'
+import { publicRobotWhere } from '../../lib/public-catalog'
+import { robotUrl } from '../../lib/public-urls'
 import { RobotImage } from './robot-image'
 import { getUnibotRobotImageMap } from '../../lib/unibot-robot-images'
 
@@ -12,12 +15,12 @@ export async function generateMetadata() {
 export default async function RobotsCatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; sort?: string; page?: string; country?: string; payload_min?: string; payload_max?: string; reach_min?: string; reach_max?: string }>
+  searchParams: Promise<CatalogParams>
 }) {
-  const params = await searchParams
-  const page = Math.max(1, Number(params.page) || 1)
+  const filters = catalogParams(await searchParams)
+  const params = filters.values
+  let page = filters.page
   const take = 24
-  const skip = (page - 1) * take
 
   let robots: any[] = []
   let total = 0
@@ -30,6 +33,7 @@ export default async function RobotsCatalogPage({
   let unibotImageMap = new Map<string, string>()
 
   try {
+    if (filters.error) throw new Error('Invalid filters')
     categories = (await prisma.categories.findMany({
       where: { is_active: true, parent_id: null, slug: { not: 'other' } },
       select: { id: true, slug: true, name_en: true },
@@ -37,11 +41,22 @@ export default async function RobotsCatalogPage({
     })).map(category => ({ id: category.id, slug: category.slug, name: category.name_en }))
     for (const category of categories) categoryNameById[category.id] = category.name
 
-    const publicIds = await prisma.entities.findMany({ where: { entity_type: 'ROBOT', publication_status: 'PUBLISHED', archived_at: null }, select: { id: true } })
-    const where: any = { lifecycle_status: 'ACTIVE', AND: [{ robot_entity_id: { in: publicIds.map(entity => entity.id) } }] }
-    if (params.q) {
-      where.canonical_name = { contains: params.q, mode: 'insensitive' }
+    const where: any = { AND: [await publicRobotWhere()] }
+    if (params.q || params.country) {
+      const companies = await prisma.$queryRaw<Array<{ id: string; name: string; country: string | null }>>`
+        SELECT p.company_entity_id AS id, p.canonical_name AS name, p.country_code AS country
+        FROM company_public_projections p JOIN entities e ON e.id = p.company_entity_id
+        WHERE e.publication_status = 'PUBLISHED' AND e.archived_at IS NULL AND p.status = 'ACTIVE'`
+      const relations = await prisma.robot_company_relations.findMany({ where: { relation: 'MANUFACTURES', company_entity_id: { in: companies.map(c => c.id) } } })
+      const robotIdsFor = (ids: string[]) => relations.filter(r => r.company_entity_id && ids.includes(r.company_entity_id)).map(r => r.robot_entity_id).filter((id): id is string => Boolean(id))
+      if (params.q) where.AND.push({ OR: [
+        { canonical_name: { contains: params.q, mode: 'insensitive' } },
+        { robot_entity_id: { in: robotIdsFor(companies.filter(c => c.name.toLowerCase().includes(params.q.toLowerCase())).map(c => c.id)) } },
+      ] })
+      if (params.country) where.AND.push({ robot_entity_id: { in: robotIdsFor(companies.filter(c => c.country === params.country).map(c => c.id)) } })
     }
+    if (params.payload_min || params.payload_max) where.payload_kg = numberRange(params.payload_min, params.payload_max)
+    if (params.reach_min || params.reach_max) where.reach_mm = numberRange(params.reach_min, params.reach_max)
     if (params.category) {
       const category = categories.find(item => item.slug === params.category)
       if (!category) {
@@ -59,10 +74,9 @@ export default async function RobotsCatalogPage({
     if (params.sort === 'newest') orderBy = { last_verified_at: 'desc' }
     if (params.sort === 'name-desc') orderBy = { canonical_name: 'desc' }
 
-    ;[robots, total] = await Promise.all([
-      prisma.robot_public_projections.findMany({ where, orderBy, take, skip }),
-      prisma.robot_public_projections.count({ where }),
-    ])
+    total = await prisma.robot_public_projections.count({ where })
+    page = Math.min(page, Math.max(1, Math.ceil(total / take)))
+    robots = await prisma.robot_public_projections.findMany({ where, orderBy: [orderBy, { id: 'asc' }], take, skip: (page - 1) * take })
     unibotImageMap = await getUnibotRobotImageMap(robots.map((robot: any) => robot.unibot_id))
 
     try {
@@ -71,14 +85,14 @@ export default async function RobotsCatalogPage({
         const companyIds = [...new Set(rels.map((r: any) => r.company_entity_id).filter(Boolean))]
         // Use raw SQL to get image_url (Prisma client not regenerated after schema change)
         const companies = companyIds.length > 0 ? await prisma.$queryRawUnsafe<any[]>(`
-          SELECT company_entity_id, projection.canonical_name, image_url
+          SELECT company_entity_id, projection.canonical_name, image_url, entity.slug
           FROM company_public_projections projection
           JOIN entities entity ON entity.id = projection.company_entity_id
           WHERE company_entity_id = ANY($1::uuid[]) AND entity.publication_status = 'PUBLISHED'
             AND entity.archived_at IS NULL AND projection.status = 'ACTIVE'
         `, companyIds) : []
         const names: Record<string, string> = {}
-        for (const c of companies) { names[c.company_entity_id] = c.canonical_name; if (c.image_url) mfrImageMap[c.company_entity_id] = c.image_url; mfrSlugMap[c.company_entity_id] = c.canonical_name?.toLowerCase().replace(/\s+/g, '-') }
+        for (const c of companies) { names[c.company_entity_id] = c.canonical_name; if (c.image_url) mfrImageMap[c.company_entity_id] = c.image_url; mfrSlugMap[c.company_entity_id] = c.slug }
         for (const r of rels) {
           if (r.company_entity_id && r.robot_entity_id) {
             mfrMap[r.robot_entity_id] = names[r.company_entity_id] || '—'
@@ -104,11 +118,12 @@ export default async function RobotsCatalogPage({
         </div>
         <h1 className="text-[32px] font-medium tracking-tight" style={{ color: 'var(--color-text-heading)' }}>Robot Catalog</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-          <span style={{ color: 'var(--color-text-heading)', fontWeight: 510 }}>{total}</span> of {total} robots
+          <span style={{ color: 'var(--color-text-heading)', fontWeight: 510 }}>{total}</span> matching robots
         </p>
       </div>
 
       {/* Filter bar — matching prototype: search, category, country, sort, range sliders */}
+      {filters.error && <p role="alert" className="max-w-[1200px] mx-auto px-6 pb-4">{filters.error}</p>}
       <form action="/robots" method="GET" className="max-w-[1200px] mx-auto px-6 pb-4 space-y-2">
         <div className="flex gap-2 flex-wrap items-center">
           <div className="flex-1 min-w-[240px] flex items-center px-3 rounded-md border"
@@ -128,8 +143,8 @@ export default async function RobotsCatalogPage({
             className="text-sm py-2.5 px-3 rounded-md border outline-none cursor-pointer min-w-[140px]"
             style={{ background: 'var(--color-input-bg)', borderColor: 'var(--color-input-border)', color: 'var(--color-text-body)' }}>
             <option value="">All Countries</option>
-            <option>United States</option><option>Germany</option><option>Japan</option>
-            <option>China</option><option>South Korea</option><option>Denmark</option>
+            <option value="US">United States</option><option value="DE">Germany</option><option value="JP">Japan</option>
+            <option value="CN">China</option><option value="KR">South Korea</option><option value="DK">Denmark</option>
           </select>
           <select name="sort" defaultValue={params.sort || ''}
             className="text-sm py-2.5 px-3 rounded-md border outline-none cursor-pointer"
@@ -141,31 +156,21 @@ export default async function RobotsCatalogPage({
             style={{ background: 'var(--color-accent-cta)', color: 'var(--color-accent-cta-text)' }}>
             Apply
           </button>
-          {(params.q || params.category || params.sort) && (
+          {(Object.values(params).some(Boolean)) && (
             <Link href="/robots" className="text-sm py-2.5 px-4 rounded-md border cursor-pointer transition-colors"
               style={{ background: 'transparent', borderColor: 'var(--color-border-color)', color: 'var(--color-text-muted)' }}>
               Reset
             </Link>
           )}
         </div>
-        {/* Range sliders */}
         <div className="flex gap-4 flex-wrap text-xs items-center" style={{ color: 'var(--color-text-muted)' }}>
-          <span>Payload:</span>
-          <input type="range" name="payload_min" min="0" max="3000" defaultValue={params.payload_min || 0}
-            className="w-[100px] accent-[var(--color-accent-cta)]" />
-          <span className="font-mono" style={{ color: 'var(--color-text-heading)', minWidth: 40 }}>{params.payload_min || 0}kg</span>
-          <span>–</span>
-          <input type="range" name="payload_max" min="0" max="3000" defaultValue={params.payload_max || 3000}
-            className="w-[100px] accent-[var(--color-accent-cta)]" />
-          <span className="font-mono" style={{ color: 'var(--color-text-heading)', minWidth: 48 }}>{params.payload_max || 3000}kg</span>
-          <span className="ml-4">Reach:</span>
-          <input type="range" name="reach_min" min="0" max="4000" defaultValue={params.reach_min || 0}
-            className="w-[100px] accent-[var(--color-accent-cta)]" />
-          <span className="font-mono" style={{ color: 'var(--color-text-heading)', minWidth: 40 }}>{params.reach_min || 0}mm</span>
-          <span>–</span>
-          <input type="range" name="reach_max" min="0" max="4000" defaultValue={params.reach_max || 4000}
-            className="w-[100px] accent-[var(--color-accent-cta)]" />
-          <span className="font-mono" style={{ color: 'var(--color-text-heading)', minWidth: 48 }}>{params.reach_max || 4000}mm</span>
+          {[
+            ['payload_min', 'Minimum payload (kg)'], ['payload_max', 'Maximum payload (kg)'],
+            ['reach_min', 'Minimum reach (mm)'], ['reach_max', 'Maximum reach (mm)'],
+          ].map(([key, label]) => <label key={key} className="flex flex-col gap-1">{label}
+            <input type="number" name={key} min="0" max="1000000" step="any" defaultValue={params[key as keyof typeof params]} placeholder="No limit"
+              className="w-36 rounded border p-2" style={{ background: 'var(--color-input-bg)', color: 'var(--color-text-body)', borderColor: 'var(--color-input-border)' }} />
+          </label>)}
         </div>
       </form>
 
@@ -186,13 +191,13 @@ export default async function RobotsCatalogPage({
           </thead>
           <tbody>
             {robots.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-12 text-sm" style={{ color: 'var(--color-text-dim)' }}>No robots found</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-sm" style={{ color: 'var(--color-text-dim)' }}>No robots found</td></tr>
             )}
             {robots.map((robot: any, i: number) => (
               <tr key={robot.id} className="transition-colors border-b"
                 style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent', borderColor: 'var(--color-border-color)' }}>
                 <td className="py-3 px-4">
-                  <Link href={`/robots/${robot.canonical_name?.toLowerCase().replace(/\s+/g, '-')}`}
+                  <Link href={robotUrl(robot.canonical_name)}
                     className="flex items-center gap-3 group">
                     <div className="w-9 h-9 rounded-md border flex items-center justify-center overflow-hidden flex-shrink-0"
                       style={{ background: '#fff', borderColor: 'var(--color-border-color)' }}>
@@ -236,9 +241,9 @@ export default async function RobotsCatalogPage({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-1 mt-8">
+          <div className="flex flex-wrap justify-center gap-1 mt-8">
             {Array.from({ length: totalPages }, (_, i) => (
-              <Link key={i} href={`/robots?page=${i + 1}${params.q ? `&q=${params.q}` : ''}${params.sort ? `&sort=${params.sort}` : ''}`}
+              <Link key={i} href={catalogPageUrl('/robots', params, i + 1)}
                 className={`min-w-[36px] h-9 flex items-center justify-center rounded-md text-sm border transition-colors`}
                 style={{
                   background: page === i + 1 ? 'var(--color-accent-cta)' : 'transparent',

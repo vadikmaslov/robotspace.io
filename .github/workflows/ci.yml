@@ -70,6 +70,8 @@ jobs:
       - name: MVP security regressions
         run: |
           pnpm exec tsx --test scripts/mvp-security.test.ts
+          pnpm exec tsx --test scripts/catalog-hardening.test.ts
+          bash -n scripts/backup-db.sh scripts/verify-db-restore.sh
           pnpm exec tsx scripts/test-admin-login-db.ts
 
       - name: Static checks

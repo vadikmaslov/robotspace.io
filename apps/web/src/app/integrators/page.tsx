@@ -1,5 +1,7 @@
 import { prisma } from '@robotspace/db'
 import IntegratorsMap from './world-map'
+import { publicRobotWhere, publicCompanyEntities } from '../../lib/public-catalog'
+import { companyUrl } from '../../lib/public-urls'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +15,10 @@ export default async function IntegratorsPage() {
   let totalRobots = 0
 
   try {
+    const [entities, robots] = await Promise.all([publicCompanyEntities(), prisma.robot_public_projections.findMany({ where: await publicRobotWhere(), select: { robot_entity_id: true } })])
+    const slugs = new Map(entities.map(e => [e.id, e.slug]))
     const rows = await prisma.company_public_projections.findMany({
+      where: { company_entity_id: { in: entities.map(e => e.id) }, status: 'ACTIVE' },
       orderBy: { canonical_name: 'asc' },
     })
 
@@ -23,7 +28,7 @@ export default async function IntegratorsPage() {
       ? await prisma.robot_company_relations.groupBy({
           by: ['company_entity_id'],
           _count: { robot_entity_id: true },
-          where: { company_entity_id: { in: entityIds } },
+          where: { company_entity_id: { in: entityIds }, robot_entity_id: { in: robots.map(r => r.robot_entity_id) } },
         })
       : []
 
@@ -41,7 +46,7 @@ export default async function IntegratorsPage() {
         name: row.canonical_name,
         country_code: row.country_code,
         robots: rc,
-        url: `/companies/${row.canonical_name?.toLowerCase().replace(/\s+/g, '-')}`,
+        url: companyUrl(slugs.get(row.company_entity_id)!),
       })
     }
   } catch {}

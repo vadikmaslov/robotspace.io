@@ -4,6 +4,7 @@ import {
   ImageValidationError,
   MAX_IMAGE_BYTES,
   validateImageBuffer,
+  readBoundedImage,
 } from '../../../lib/image-security'
 
 export async function GET(req: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const contentLength = Number(res.headers.get('content-length') ?? 0)
     if (contentLength > MAX_IMAGE_BYTES) return NextResponse.json({ error: 'Image too large' }, { status: 413 })
 
-    const image = validateImageBuffer(Buffer.from(await res.arrayBuffer()), res.headers.get('content-type') ?? undefined)
+    const image = validateImageBuffer(await readBoundedImage(res), res.headers.get('content-type') ?? undefined)
 
     return new NextResponse(image.buffer as unknown as BodyInit, {
       headers: {

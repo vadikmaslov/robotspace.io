@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { prisma } from '@robotspace/db'
+import { robotUrl, companyUrl, articleSlug } from '../lib/public-urls'
 import { registryReadEnabled, registrySitemapDevelopers, registrySitemapProjects } from '../lib/registry-public'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://robotspace.io'
@@ -7,7 +8,6 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://robotspace.io'
 // The sitemap changes as publication status changes; it must not query the DB
 // during an image build, where production credentials are intentionally absent.
 export const dynamic = 'force-dynamic'
-const slug = (value: string) => value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 type PublicEntity = { canonical_name: string; slug: string; last_verified_at: Date | null }
 type PublishedArticle = { title: string; published_at: Date }
 
@@ -38,6 +38,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       registrySitemapProjects(),
       registrySitemapDevelopers(),
     ])
-    return [...staticRoutes, ...robots.map((item) => ({ url: `${siteUrl}/robots/${encodeURIComponent(item.canonical_name.trim().toLowerCase().replace(/\s+/g, '-'))}`, lastModified: item.last_verified_at ?? undefined })), ...companies.map((item) => ({ url: `${siteUrl}/companies/${encodeURIComponent(item.slug)}`, lastModified: item.last_verified_at ?? undefined })), ...articles.map((item) => ({ url: `${siteUrl}/insights/${slug(item.title).slice(0, 80)}`, lastModified: item.published_at })), ...projects.map((item) => ({ url: `${siteUrl}/projects/${item.slug}`, lastModified: item.updatedAt })), ...developers.map((item) => ({ url: `${siteUrl}/developers/${item.handle}`, lastModified: undefined }))]
+    return [...staticRoutes, ...robots.map((item) => ({ url: `${siteUrl}${robotUrl(item.canonical_name)}`, lastModified: item.last_verified_at ?? undefined })), ...companies.map((item) => ({ url: `${siteUrl}${companyUrl(item.slug)}`, lastModified: item.last_verified_at ?? undefined })), ...articles.map((item) => ({ url: `${siteUrl}/insights/${articleSlug(item.title)}`, lastModified: item.published_at })), ...projects.map((item) => ({ url: `${siteUrl}/projects/${item.slug}`, lastModified: item.updatedAt })), ...developers.map((item) => ({ url: `${siteUrl}/developers/${item.handle}`, lastModified: undefined }))]
   } catch { return staticRoutes }
 }

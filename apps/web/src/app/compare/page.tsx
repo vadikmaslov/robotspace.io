@@ -2,6 +2,9 @@ import { Prisma, prisma } from '@robotspace/db'
 import { cookies } from 'next/headers'
 import { CompareSelector } from './compare-selector'
 import { CompareRemovalControls } from './compare-removal-controls'
+import { publicRobotWhere } from '../../lib/public-catalog'
+import { catalogParams } from '../../lib/catalog-params'
+import { isUuid } from '../../lib/image-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,8 +16,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const cookieStore = await cookies()
   const params = await searchParams
   const cookieIds = cookieStore.get('compare_ids')?.value || ''
-  const selectedIds = cookieIds.split(',').filter(Boolean)
-  const page = Math.max(1, Number.parseInt(params.page || '1', 10) || 1)
+  const selectedIds = [...new Set(cookieIds.split(',').filter(isUuid))].slice(0, 5)
+  const page = catalogParams(params).page
   const pageSize = 60
 
   let robots: any[] = []
@@ -23,9 +26,10 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const ecosystemByRobot = new Map<string, { projects: number; resources: number }>()
 
   try {
+    const publicWhere = await publicRobotWhere()
     if (selectedIds.length >= 2 && selectedIds.length <= 5) {
       robots = await prisma.robot_public_projections.findMany({
-        where: { id: { in: selectedIds }, lifecycle_status: 'ACTIVE' },
+        where: { ...publicWhere, id: { in: selectedIds } },
         take: 5,
       })
       const categoryIds = robots.map(robot => robot.category_id).filter((id): id is string => Boolean(id))
@@ -60,8 +64,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       }
     }
     ;[allRobots, totalRobots] = await Promise.all([
-      prisma.robot_public_projections.findMany({ where: { lifecycle_status: 'ACTIVE' }, orderBy: { canonical_name: 'asc' }, skip: (page - 1) * pageSize, take: pageSize }),
-      prisma.robot_public_projections.count({ where: { lifecycle_status: 'ACTIVE' } }),
+      prisma.robot_public_projections.findMany({ where: publicWhere, orderBy: [{ canonical_name: 'asc' }, { id: 'asc' }], skip: (page - 1) * pageSize, take: pageSize }),
+      prisma.robot_public_projections.count({ where: publicWhere }),
     ])
   } catch {}
 

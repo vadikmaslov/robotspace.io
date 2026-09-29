@@ -1,5 +1,6 @@
 import { prisma } from '@robotspace/db'
 import Link from 'next/link'
+import { robotUrl } from '../../../lib/public-urls'
 import { notFound } from 'next/navigation'
 import { RobotImage } from '../../robots/robot-image'
 import { getUnibotRobotImageMap } from '../../../lib/unibot-robot-images'
@@ -43,7 +44,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
       WHERE entity.publication_status = 'PUBLISHED' AND entity.archived_at IS NULL
         AND projection.status = 'ACTIVE'
     `)
-    const normalizedSlug = normalizeCompanySlug(decodeURIComponent(slug))
+    const normalizedSlug = normalizeCompanySlug(slug)
     company = companies.find((c: any) => c.slug === slug)
       ?? companies.find((c: any) => normalizeCompanySlug(c.canonical_name ?? '') === normalizedSlug)
     if (company) {
@@ -131,7 +132,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {robots.map((r: any) => (
-              <Link key={r.id} href={`/robots/${r.canonical_name?.toLowerCase().replace(/\s+/g, '-')}`}
+              <Link key={r.id} href={robotUrl(r.canonical_name)}
                 className="p-4 rounded-lg border transition-colors hover:bg-[var(--color-bg-elevated)]"
                 style={{ borderColor: 'var(--color-border-color)' }}>
                 <div className="flex items-center gap-3 mb-3">

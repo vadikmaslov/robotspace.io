@@ -11,6 +11,27 @@ export { MAX_IMAGE_BYTES }
 
 export class ImageValidationError extends Error {}
 
+/** Bound the stream before buffering; Content-Length is not trusted. */
+export async function readBoundedImage(response: Response): Promise<Buffer> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new ImageValidationError('Empty image')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > MAX_IMAGE_BYTES) throw new ImageValidationError('Image must be 5 MB or smaller')
+      chunks.push(value)
+    }
+    return Buffer.concat(chunks, size)
+  } finally {
+    await reader.cancel().catch(() => undefined)
+    reader.releaseLock()
+  }
+}
+
 export type ValidatedImage = {
   buffer: Buffer
   extension: keyof typeof IMAGE_TYPES

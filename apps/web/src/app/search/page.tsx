@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { robotUrl } from '../../lib/public-urls'
 import { cleanSearchQuery, searchPublicEntities } from '../../lib/unified-search'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,6 @@ export const metadata: Metadata = {
 type SearchParams = { q?: string }
 
 // Robot detail routes use the normalized public model name, as does /robots.
-const robotUrl = (name: string) => `/robots/${name.toLowerCase().replace(/\s+/g, '-')}`
 
 function ResultSection({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="rounded-xl border p-5" style={{ borderColor: 'var(--color-border-color)', background: 'var(--color-bg-card)' }}>

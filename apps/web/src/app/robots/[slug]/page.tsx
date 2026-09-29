@@ -49,7 +49,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
       })
       if (rels.length > 0) {
         const rows = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT projection.canonical_name, country_code, founded_year, image_url, summary
+          SELECT projection.canonical_name, entity.slug, country_code, founded_year, image_url, summary
           FROM company_public_projections projection
           JOIN entities entity ON entity.id = projection.company_entity_id
           WHERE company_entity_id = $1::uuid AND entity.publication_status = 'PUBLISHED'
@@ -113,7 +113,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
 
           {manufacturer && (
             <div className="text-lg mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              by <Link href={`/companies/${manufacturer.canonical_name?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:underline" style={{ color: 'var(--color-accent-b2b)' }}>{manufacturer.canonical_name}</Link>
+              by <Link href={`/companies/${encodeURIComponent(manufacturer.slug)}`} className="hover:underline" style={{ color: 'var(--color-accent-b2b)' }}>{manufacturer.canonical_name}</Link>
             </div>
           )}
 
@@ -166,7 +166,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
                 style={{ background: '#fff', borderColor: 'var(--color-border-color)' }}>🏢</div>
               <div>
                 <h3 className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
-                  <Link href={`/companies/${manufacturer.canonical_name?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:underline">
+                  <Link href={`/companies/${encodeURIComponent(manufacturer.slug)}`} className="hover:underline">
                     {manufacturer.canonical_name}
                   </Link>
                 </h3>

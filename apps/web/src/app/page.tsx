@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { prisma } from '@robotspace/db'
+import { publicRobotWhere, publicCompanyEntities } from '../lib/public-catalog'
+import { robotUrl, articleSlug } from '../lib/public-urls'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,13 +28,15 @@ export default async function HomePage() {
   const categoryNameById: Record<string, string> = {}
 
   try {
+    const [publicRobots, publicCompanies] = await Promise.all([publicRobotWhere(), publicCompanyEntities()])
+    const counts = await prisma.$queryRaw<Array<{ count: number }>>`SELECT count(*)::int AS count FROM articles WHERE publication_status = 'PUBLISHED'`
     ;[robotCount, companyCount, newsCount, articles, categories, featuredRobots] = await Promise.all([
-      prisma.robot_public_projections.count(),
-      prisma.company_public_projections.count(),
-      prisma.articles.count(),
-      prisma.articles.findMany({ orderBy: { published_at: 'desc' }, take: 5 }),
+      prisma.robot_public_projections.count({ where: publicRobots }),
+      prisma.company_public_projections.count({ where: { status: 'ACTIVE', company_entity_id: { in: publicCompanies.map(c => c.id) } } }),
+      Promise.resolve(counts[0]?.count ?? 0),
+      prisma.$queryRaw<any[]>`SELECT id, title, source_id, published_at FROM articles WHERE publication_status = 'PUBLISHED' ORDER BY published_at DESC LIMIT 5`,
       prisma.categories.findMany({ where: { is_active: true, parent_id: null, slug: { not: 'other' } }, orderBy: { sort_order: 'asc' }, take: 10 }),
-      prisma.robot_public_projections.findMany({ orderBy: { last_verified_at: 'desc' }, take: 4 }),
+      prisma.robot_public_projections.findMany({ where: { ...publicRobots, last_verified_at: { not: null } }, orderBy: { last_verified_at: 'desc' }, take: 4 }),
     ])
     for (const category of categories) categoryNameById[category.id] = category.name_en
   } catch {}
@@ -61,7 +65,7 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {featuredRobots.length === 0 && <Empty message="No verified robot records are available yet." />}
           {featuredRobots.map((robot) => (
-            <Link key={robot.id} href={`/robots/${slug(robot.canonical_name)}`} className="rounded-xl p-5 transition-colors hover:bg-[var(--color-bg-elevated)]" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
+            <Link key={robot.id} href={robotUrl(robot.canonical_name)} className="rounded-xl p-5 transition-colors hover:bg-[var(--color-bg-elevated)]" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
               <div className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>{robot.canonical_name}</div>
               <div className="text-[13px] mt-1" style={{ color: 'var(--color-text-muted)' }}>{categoryNameById[robot.category_id] || 'Uncategorized'}</div>
               <div className="text-xs mt-4" style={{ color: 'var(--color-text-dim)' }}>{robot.last_verified_at ? `Verified ${new Date(robot.last_verified_at).toISOString().slice(0, 10)}` : 'Verification pending'}</div>
@@ -93,7 +97,7 @@ export default async function HomePage() {
   )
 }
 
-function slug(value: string) { return value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') }
+const slug = articleSlug
 function SectionTitle({ title, href }: { title: string; href: string }) { return <div className="flex justify-between items-baseline mb-6"><h2 className="text-2xl font-normal tracking-tight" style={{ color: 'var(--color-text-heading)' }}>{title}</h2><Link href={href} className="text-sm" style={{ color: 'var(--color-text-muted)' }}>View all</Link></div> }
 function Empty({ message }: { message: string }) { return <div className="col-span-full px-6 py-8 text-center text-sm rounded-xl" style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-dim)' }}>{message}</div> }
 function KpiCard({ label, value, detail }: { label: string; value: number; detail: string }) { return <div className="rounded-xl p-6" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}><div className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>{label}</div><div className="font-mono text-[32px] mt-1" style={{ color: 'var(--color-text-heading)' }}>{value.toLocaleString()}</div><div className="mt-2 text-[13px]" style={{ color: 'var(--color-text-muted)' }}>{detail}</div></div> }
