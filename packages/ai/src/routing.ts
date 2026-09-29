@@ -3,6 +3,8 @@ import { prisma } from '@robotspace/db'
 import type { GenerateRequest, GenerateResponse, ProviderConfig, NormalizedError } from './adapter-interface'
 import { getAdapter } from './index'
 import { decryptStoredCredential } from './encryption'
+import { reserveBudget, settleBudget, type Reservation } from './budget'
+import { boundedRequest, BudgetDenied } from './budget-math'
 
 type RouteScope = 'SIMPLE_DEFAULT' | 'COMPLEX_DEFAULT' | 'OPERATION_OVERRIDE'
 
@@ -33,12 +35,14 @@ interface RoutingResult {
 const cooldownMap = new Map<string, number>()
 
 export async function routeRequest(request: GenerateRequest, options: RoutingOptions): Promise<RoutingResult> {
+  const bounds = boundedRequest(request)
   const entries = await loadRouteEntries(options.scope)
   if (!entries.length) return { response: null, attempts: 0, fallbackChain: [], error: { type: 'CLIENT_ERROR', message: `No enabled models in ${options.scope}`, retryable: false } }
 
   const fallbackChain: string[] = []
   let attempts = 0
   let lastError: NormalizedError | undefined
+  let requestReserved = 0
 
   for (const entry of entries) {
     fallbackChain.push(entry.remoteModelId)
@@ -47,29 +51,49 @@ export async function routeRequest(request: GenerateRequest, options: RoutingOpt
     if (!config) continue
     const adapter = getAdapter(config.adapterType)
 
-    for (let attempt = 0; attempt < entry.maxAttempts; attempt++) {
-      attempts++
+    for (let attempt = 0; attempt < Math.min(entry.maxAttempts, 3) && attempts < 3; attempt++) {
+      let reservation: Reservation
       try {
-        const response = await adapter.generate(config, {
+        reservation = await reserveBudget(entry.routeModelId, options.operationName || options.scope, request,
+          options.budgetLimit === undefined ? undefined : options.budgetLimit - requestReserved / 1000000)
+      } catch (error) {
+        // Missing tariff may fall through to a priced model; infrastructure failures never do.
+        if (!(error instanceof BudgetDenied)) throw error
+        lastError = { type: 'CLIENT_ERROR', message: error.code, retryable: false }
+        if (error.code === 'PRICE_MISSING_OR_EXPIRED') break
+        return { response: null, attempts, fallbackChain, error: lastError }
+      }
+      requestReserved += reservation.micros
+      attempts++
+      let response: GenerateResponse
+      try {
+        response = await adapter.generate(config, {
           ...request,
           modelId: entry.remoteModelId,
-          options: { ...request.options, timeout: config.requestTimeout },
+          options: { ...request.options, maxTokens: bounds.output, timeout: Math.min(request.options?.timeout ?? 60000, config.requestTimeout ?? 60000, 60000) },
         })
-        if (options.validateResponse && !options.validateResponse(response)) {
-          lastError = { type: 'VALIDATION_ERROR', message: `Model response failed validation for ${options.operationName || options.scope}`, retryable: false }
-          break
-        }
-        await recordUsage(entry.providerId, entry.routeModelId, response)
-        return { response, routeEntry: entry, attempts, fallbackChain }
       } catch (error) {
         lastError = adapter.normalizeError(error)
+        // Timeout/error may still be billable. Never refund or retry without durable accounting.
+        await settleBudget(reservation, undefined, false, lastError.type)
         if (lastError.type === 'AUTH_ERROR' || lastError.type === 'RATE_LIMITED') {
           if (lastError.type === 'RATE_LIMITED') cooldownMap.set(entry.routeModelId, Date.now() + entry.cooldownMs)
           break
         }
         if (!lastError.retryable || attempt === entry.maxAttempts - 1) break
         await new Promise(resolve => setTimeout(resolve, Math.min(1000 * 2 ** attempt, 10_000)))
+        continue
       }
+      let accepted = true
+      try { accepted = !options.validateResponse || options.validateResponse(response) }
+      catch { accepted = false }
+      const settled = await settleBudget(reservation, response, accepted, accepted ? 'INVALID_USAGE' : 'VALIDATION_ERROR')
+      if (!settled) return { response: null, attempts, fallbackChain, error: { type: 'CLIENT_ERROR', message: 'AI_ACCOUNTING_REVIEW_REQUIRED', retryable: false } }
+      if (!accepted) {
+        lastError = { type: 'VALIDATION_ERROR', message: 'Model response failed validation', retryable: false }
+        break
+      }
+      return { response, routeEntry: entry, attempts, fallbackChain }
     }
   }
 
@@ -104,10 +128,4 @@ function inCooldown(modelId: string) {
   if (!until) return false
   if (until <= Date.now()) { cooldownMap.delete(modelId); return false }
   return true
-}
-
-async function recordUsage(providerId: string, modelId: string, response: GenerateResponse) {
-  await prisma.ai_requests.create({
-    data: { route_model_id: modelId, route_provider: providerId, idempotency_key: `route-${modelId}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`, status: 'SUCCEEDED', tokens_used: BigInt(response.usage.totalTokens), estimated_cost: 0, latency_ms: BigInt(response.latencyMs), started_at: new Date(), finished_at: new Date() },
-  }).catch(() => undefined)
 }

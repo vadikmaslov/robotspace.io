@@ -113,6 +113,10 @@ export async function safeFetch(options: SafeFetchOptions): Promise<SafeFetchRes
 
   // Handle redirects manually — strip Authorization header
   if (response.status >= 300 && response.status < 400) {
+    // A second POST can be billed separately. The routing budget reserves one HTTP attempt.
+    if (options.method && options.method !== 'GET' && options.method !== 'HEAD') {
+      throw new Error('Redirect refused for a non-read-only request')
+    }
     const location = response.headers.get('location')
     if (!location) {
       throw new Error('Redirect response without Location header')

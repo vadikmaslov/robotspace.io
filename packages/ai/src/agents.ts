@@ -40,7 +40,7 @@ async function runAgent(
         timeout: config.timeout,
       },
     },
-    { scope: scopeForAgentRun(config.operation, messages.map(message => message.content).join('\n')) },
+    { scope: scopeForAgentRun(config.operation, messages.map(message => message.content).join('\n')), operationName: config.operation },
   )
 
   if (!result.response) {
@@ -125,8 +125,8 @@ export async function ambiguousEntityResolver(
 New candidate: ${JSON.stringify(newCandidateData)}
 Existing candidates: ${JSON.stringify(candidates)}
 
-IMPORTANT — supplementary reference: You may also have access to the Unibot catalog 
-(unibot_catalog_cache table, entity_type='robot') which contains Russian-language 
+IMPORTANT — supplementary reference: You may also have access to the Unibot catalog
+(unibot_catalog_cache table, entity_type='robot') which contains Russian-language
 robot names (name, brand_name, section_name). Use this as a HELPER, not primary source:
 - Match by fuzzy name similarity (different transliterations: e.g. "Робот-собака" ≈ "Robot Dog")
 - Cross-reference brand names (BRAND_NAME from Unibot vs manufacturer from Wikidata)
@@ -154,9 +154,9 @@ export async function duplicateResolver(entityA: { name: string; manufacturer: s
 Entity A: ${JSON.stringify(entityA)}
 Entity B: ${JSON.stringify(entityB)}
 
-Consider: name similarity (including different transliterations — Russian "Робот" ≈ English "Robot"), 
+Consider: name similarity (including different transliterations — Russian "Робот" ≈ English "Robot"),
 manufacturer, model codes, release dates.
-IMPORTANT: Names may differ due to language (English vs Russian from Unibot catalog). 
+IMPORTANT: Names may differ due to language (English vs Russian from Unibot catalog).
 Match if the core meaning is the same despite transliteration differences.
 Respond with JSON: { "are_duplicates": true|false, "confidence": 0.XX, "explanation": "..." }`
 
