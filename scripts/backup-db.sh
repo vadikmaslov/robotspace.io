@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local recovery copy only. An independent encrypted destination is still required.
+# Local recovery copy plus independently stored encrypted S3 copy.
 set -euo pipefail
 umask 077
 backup_dir=/opt/robotspace/shared/backups
@@ -22,6 +22,9 @@ target="$backup_dir/robotspace-$(date -u +%Y%m%dT%H%M%SZ).dump"
 test ! -e "$target"
 mv "$temporary" "$target"
 chmod 600 "$target"
+export PATH=/opt/node-v24.18.0/bin:$PATH
+node "$(dirname "$(readlink -f "$0")")/backup-s3.mjs" upload "$target"
+# Do not prune local copies unless the remote upload/readback succeeded.
 # Only this job's dated snapshots in its validated directory; never releases.
 find "$backup_dir" -maxdepth 1 -type f -name 'robotspace-????????T??????Z.dump' -mtime +7 -delete
 printf 'Local backup complete: %s\n' "$(basename "$target")"
