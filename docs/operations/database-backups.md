@@ -27,3 +27,10 @@ Check `systemctl list-timers robotspace-backup.timer`,
 claim recoverability just because the timer is enabled; repeat restore drills.
 Expected local recovery point: last successful daily run (approximately 24h).
 No recovery-time guarantee or independent-server protection is established yet.
+
+## Packaging from Windows
+
+Use `git -c core.autocrlf=false archive` for Linux release archives, including
+partial archives created from a repository subdirectory. Validate the archived
+shell files for CR bytes before activation. `.gitattributes` sets LF for shell
+and systemd files, but do not rely on working-tree line endings alone.

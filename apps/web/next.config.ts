@@ -33,6 +33,10 @@ const nextConfig = {
           { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
         ],
       },
+      {
+        source: '/api/robot-image/:path*',
+        headers: [{ key: 'Content-Security-Policy', value: "default-src 'none'; sandbox" }],
+      },
     ]
   },
 
