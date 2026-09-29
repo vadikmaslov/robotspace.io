@@ -1,4 +1,5 @@
 import { prisma } from '@robotspace/db'
+import { decodeRouteSegment } from '../../../lib/public-urls'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { RobotImage } from '../robot-image'
@@ -13,13 +14,15 @@ import { ManufacturerStatements } from '../../manufacturer/statements'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
+  const slug = decodeRouteSegment((await params).slug)
+  if (slug === null) notFound()
   const name = slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   return { title: `${name} — Robot Specifications and Software Ecosystem`, description: `Verified specifications, official resources and compatible software projects for ${name}.`, alternates: { canonical: `/robots/${slug}` } }
 }
 
 export default async function RobotDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
+  const slug = decodeRouteSegment((await params).slug)
+  if (slug === null) notFound()
 
   let robot: any = null
   let manufacturer: any = null

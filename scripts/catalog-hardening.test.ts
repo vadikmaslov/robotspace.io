@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { catalogParams, catalogPageUrl, numberRange, escapedLike } from '../apps/web/src/lib/catalog-params'
-import { robotUrl, articleSlug } from '../apps/web/src/lib/public-urls'
+import { robotUrl, articleSlug, decodeRouteSegment } from '../apps/web/src/lib/public-urls'
 import { escapeXml } from '../apps/web/src/lib/svg-text'
 import { readBoundedImage, MAX_IMAGE_BYTES } from '../apps/web/src/lib/image-security'
 
@@ -25,6 +25,9 @@ test('routes encode reserved characters without changing existing names', () => 
   assert.equal(robotUrl(' IRB  6700 '), '/robots/irb-6700')
   assert.equal(robotUrl('Robot/#1'), '/robots/robot%2F%231')
   assert.equal(articleSlug('A'.repeat(100)).length, 80)
+  assert.equal(decodeRouteSegment('jaka-%CF%80'), 'jaka-π')
+  assert.equal(decodeRouteSegment('robot-%2B-1'), 'robot-+-1')
+  assert.equal(decodeRouteSegment('bad-%ZZ'), null)
 })
 test('SVG text cannot introduce markup', () => {
   const value = escapeXml('</text><script>alert("x")</script>&')
