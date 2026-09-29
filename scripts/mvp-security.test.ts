@@ -6,6 +6,18 @@ import { test } from 'node:test'
 const root = new URL('../', import.meta.url)
 const read = (path: string) => readFile(new URL(path, root), 'utf8')
 
+test('request admin pages authorize before reads and forms never expose database errors', async () => {
+  for (const section of ['quotes', 'submissions']) {
+    const source = await read(`apps/web/src/app/admin/${section}/page.tsx`)
+    assert.ok(source.indexOf("sessionKind !== 'admin'") < source.indexOf('await prisma.'))
+    assert.match(source, /sessionKind !== 'admin'\) redirect\('\/admin\/login'\)/)
+    assert.doesNotMatch(source, /dangerouslySetInnerHTML/)
+  }
+  const forms = await read('apps/web/src/app/public-form-actions.ts')
+  assert.doesNotMatch(forms, /sendOperationsEmail|error instanceof Error \? error.message/)
+  assert.match(forms, /error instanceof FormValidationError/)
+})
+
 test('every admin API handler checks its session before handler work', async () => {
   async function visit(directory: string): Promise<string[]> {
     const entries = await readdir(directory, { withFileTypes: true })
