@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { deliverRequest, requestMessage } from './alerts/request-delivery.mjs'
+import { submissionType } from '../apps/web/src/lib/submission-type.ts'
 
 const require = createRequire(new URL('../apps/web/package.json', import.meta.url))
 const { Client } = require('pg')
 const options = { connectionString: process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL }
 const clients = [new Client(options), new Client(options)]
 const schema = `request_outbox_test_${randomUUID().replaceAll('-', '')}`
+const insertSubmission = "INSERT INTO submissions(type,payload_json) VALUES ($1,'{}') RETURNING id"
 let created = false
 try {
   await Promise.all(clients.map(client => client.connect()))
@@ -16,18 +18,22 @@ try {
   await db.query(`CREATE SCHEMA "${schema}"`)
   created = true
   for (const client of clients) await client.query(`SET search_path TO "${schema}"`)
-  await db.query(`CREATE TABLE submissions(id uuid PRIMARY KEY DEFAULT gen_random_uuid());
-    CREATE TABLE quote_requests(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), notification_sent boolean DEFAULT false, sent_at timestamptz);`)
-  await db.query('INSERT INTO submissions DEFAULT VALUES')
+  await db.query(await readFile(new URL('../packages/db/migrations/05_market_submissions_quotes/migration.sql', import.meta.url), 'utf8'))
+  for (const [label, code] of [['Add Robot', 'ROBOT'], ['Add Company', 'COMPANY'], ['Submit Update', 'UPDATE']]) {
+    assert.equal(submissionType(label), code)
+    await db.query(insertSubmission, [submissionType(label)])
+  }
+  assert.equal(submissionType('toString'), null)
+  await assert.rejects(db.query(insertSubmission, ['Add Robot']), { code: '23514' }, 'database rejects UI labels')
   await db.query(await readFile(new URL('../packages/db/migrations/48_request_email_outbox/migration.sql', import.meta.url), 'utf8'))
   const count = async () => (await db.query('SELECT count(*)::int n FROM request_email_outbox')).rows[0].n
   assert.equal(await count(), 0, 'no historical replay')
   await db.query('BEGIN')
-  await db.query('INSERT INTO submissions DEFAULT VALUES')
+  await db.query(insertSubmission, ['ROBOT'])
   assert.equal(await count(), 1)
   await db.query('ROLLBACK')
   assert.equal(await count(), 0, 'request and queue roll back together')
-  const quote = (await db.query('INSERT INTO quote_requests DEFAULT VALUES RETURNING id')).rows[0].id
+  const quote = (await db.query("INSERT INTO quote_requests(contact_name,email,consent_version,consent_timestamp) VALUES ('Test','test@example.test','test',now()) RETURNING id")).rows[0].id
   assert.equal(await count(), 1)
   await assert.rejects(db.query('INSERT INTO request_email_outbox(quote_id) VALUES ($1)', [quote]), { code: '23505' })
   await deliverRequest(db, async () => { throw new Error('private SMTP failure') })
@@ -54,7 +60,7 @@ try {
   assert.equal(saved.notification_sent, true)
   assert.equal(saved.sent_at.toISOString(), row.sent_at.toISOString())
   assert.equal(await deliverRequest(other, async () => assert.fail('sent twice')), false)
-  const submission = (await db.query('INSERT INTO submissions DEFAULT VALUES RETURNING id')).rows[0].id
+  const submission = (await db.query(insertSubmission, ['COMPANY'])).rows[0].id
   await db.query("UPDATE request_email_outbox SET state='SENDING', lease_token=gen_random_uuid(), lease_until=now()+interval '2 minutes' WHERE submission_id=$1", [submission])
   assert.equal(await deliverRequest(db, async () => assert.fail('active lease stolen')), false)
   await db.query("UPDATE request_email_outbox SET lease_until=now()-interval '1 second' WHERE submission_id=$1", [submission])
@@ -66,7 +72,7 @@ try {
   assert.doesNotMatch(JSON.stringify(message), /private@example|untrusted user/)
   assert.equal(requestMessage(row).messageId, requestMessage(row).messageId, 'stable Message-ID on retry')
   assert.notEqual(message.messageId, requestMessage(row).messageId, 'different requests have different Message-IDs')
-  const stolen = (await db.query('INSERT INTO submissions DEFAULT VALUES RETURNING id')).rows[0].id
+  const stolen = (await db.query(insertSubmission, ['UPDATE'])).rows[0].id
   await deliverRequest(db, async () => {
     // A delayed sender must not overwrite a newer lease after losing its claim.
     await other.query('UPDATE request_email_outbox SET lease_token=gen_random_uuid() WHERE submission_id=$1', [stolen])
@@ -79,7 +85,7 @@ try {
   // Failure to enqueue must also fail the original request INSERT.
   await db.query('BEGIN')
   await db.query("ALTER TABLE request_email_outbox ADD CONSTRAINT test_failure CHECK (false) NOT VALID")
-  await assert.rejects(db.query('INSERT INTO submissions DEFAULT VALUES'), { code: '23514' })
+  await assert.rejects(db.query(insertSubmission, ['ROBOT']), { code: '23514' })
   await db.query('ROLLBACK')
   console.log('Request outbox: atomicity, no replay, retry, concurrent claim, lease recovery, flags and privacy passed')
 } finally {

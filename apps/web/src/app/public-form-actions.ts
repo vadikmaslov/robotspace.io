@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@robotspace/db'
+import { submissionType } from '../lib/submission-type'
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_WINDOW = 5
@@ -51,11 +52,11 @@ function sourceUrls(raw: string) {
 export async function submitData(formData: FormData) {
   try {
     await guard(formData)
-    const type = value(formData, 'type')
+    const type = submissionType(value(formData, 'type'))
     const name = value(formData, 'name', 255)
     const email = value(formData, 'email', 255).toLowerCase()
     const urls = sourceUrls(value(formData, 'urls'))
-    if (!['Add Robot', 'Add Company', 'Submit Update'].includes(type) || !name) throw new FormValidationError('Choose a submission type and provide a name.')
+    if (!type || !name) throw new FormValidationError('Choose a submission type and provide a name.')
     if (email && !validEmail(email)) throw new FormValidationError('Enter a valid email address.')
     // A database trigger queues the admin email atomically with this INSERT.
     await prisma.submissions.create({

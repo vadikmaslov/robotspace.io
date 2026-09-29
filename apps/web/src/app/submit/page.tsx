@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { submitData } from '../public-form-actions'
 
 export async function generateMetadata() {
-  return { title: 'Submit Data', description: 'Suggest a robot, company, or correction. Every submission goes through autonomous verification.' }
+  return { title: 'Submit Data', description: 'Suggest a robot, company, or correction for editorial review.' }
 }
 
 export default async function SubmitPage({ searchParams }: { searchParams: Promise<{ status?: string; error?: string }> }) {
@@ -11,7 +11,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
     <div className="max-w-[720px] mx-auto px-6 py-16" style={{ color: 'var(--color-text-body)' }}>
       <h1 className="text-4xl font-semibold mb-4" style={{ color: 'var(--color-text-heading)' }}>Submit Data</h1>
       <p className="mb-8" style={{ color: 'var(--color-text-muted)' }}>
-        Suggest a robot, company, or correction. Every submission goes through autonomous verification.
+        Suggest a robot, company, or correction for editorial review. Sending a suggestion does not publish it automatically.
       </p>
 
       {params.status === 'received' && <p role="status" className="rounded-md p-3 text-sm">Thank you. Your submission was received for verification.</p>}
@@ -54,8 +54,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
         </button>
 
         <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>
-          By submitting, you agree that submitted data will be verified and may be published under our{' '}
-          <Link href="/terms" className="underline">Terms</Link>.
+          Your suggestion and optional contact email will be stored for review. Read how we handle this information in our{' '}
+          <Link href="/privacy" className="underline">Privacy Policy</Link>.
         </p>
       </form>
     </div>

@@ -16,6 +16,9 @@ test('request admin pages authorize before reads and forms never expose database
   const forms = await read('apps/web/src/app/public-form-actions.ts')
   assert.doesNotMatch(forms, /sendOperationsEmail|error instanceof Error \? error.message/)
   assert.match(forms, /error instanceof FormValidationError/)
+  assert.match(forms, /const type = submissionType\(value\(formData, 'type'\)\)/)
+  const submitPage = await read('apps/web/src/app/submit/page.tsx')
+  assert.doesNotMatch(submitPage, /autonomous verification|href="\/terms"/)
 })
 
 test('every admin API handler checks its session before handler work', async () => {

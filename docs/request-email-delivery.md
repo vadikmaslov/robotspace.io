@@ -16,6 +16,6 @@ Existing records are NOT backfilled: previous delivery is unknown and replay cou
 - `systemctl start robotspace-ai-alerts.service` for an immediate pass.
 - Check private logs with `journalctl -u robotspace-ai-alerts.service`; the runner logs only counts and generic failures, not recipients or SMTP errors.
 - Persistent queued/retry states mean SMTP/configuration or delivery needs attention. There is no independent external monitor for timer downtime yet.
-- Integration test: `node scripts/test-request-outbox-db.mjs` with the private database environment loaded. It creates and removes one uniquely named test schema, uses fake SMTP, and never sends real mail or modifies real requests.
+- Integration test: `pnpm exec tsx scripts/test-request-outbox-db.mjs` with the private database environment loaded. It applies the real request-table migration and outbox migration in one uniquely named test schema, checks all three public submission labels against database codes, uses fake SMTP, then removes only its schema. It never sends real mail or modifies real requests.
 
 Deployment: take a backup, apply migration 48 before switching to new web code. The old web sends directly, so pause incoming form POSTs during the migration/symlink transition or stop web briefly to avoid duplicate notifications in that window. Do not roll back to the old synchronous sender while keeping queue triggers active without first stopping request processing and resolving queued records.
