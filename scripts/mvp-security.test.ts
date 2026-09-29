@@ -7,7 +7,7 @@ const root = new URL('../', import.meta.url)
 const read = (path: string) => readFile(new URL(path, root), 'utf8')
 
 test('request admin pages authorize before reads and forms never expose database errors', async () => {
-  for (const section of ['quotes', 'submissions']) {
+  for (const section of ['quotes', 'submissions', 'pilot']) {
     const source = await read(`apps/web/src/app/admin/${section}/page.tsx`)
     assert.ok(source.indexOf("sessionKind !== 'admin'") < source.indexOf('await prisma.'))
     assert.match(source, /sessionKind !== 'admin'\) redirect\('\/admin\/login'\)/)

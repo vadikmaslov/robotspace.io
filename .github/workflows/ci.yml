@@ -78,6 +78,7 @@ jobs:
           bash -n scripts/deliver-ai-alerts.sh
           pnpm exec tsx scripts/test-ai-budget-db.ts
           pnpm exec tsx scripts/test-request-outbox-db.mjs
+          pnpm exec tsx scripts/test-pilot-metrics-db.ts
 
       - name: Static checks
         run: pnpm lint
