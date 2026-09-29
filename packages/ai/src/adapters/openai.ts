@@ -13,6 +13,7 @@ import type {
   CostEstimate,
 } from '../adapter-interface'
 import { safeFetch } from '../ssrf'
+import { isQuotaExhausted } from '../subscription'
 
 export const openaiAdapter: AIProviderAdapter = {
   // --------------------------------------------------
@@ -112,6 +113,9 @@ export const openaiAdapter: AIProviderAdapter = {
 
     if (response.status !== 200) {
       const text = await response.text()
+      if (isQuotaExhausted(response.status, text)) {
+        throw { type: 'QUOTA_EXHAUSTED', statusCode: response.status, message: 'Subscription quota exhausted', retryable: false } satisfies NormalizedError
+      }
       if (response.status === 429) {
         const err: NormalizedError = {
           type: 'RATE_LIMITED',

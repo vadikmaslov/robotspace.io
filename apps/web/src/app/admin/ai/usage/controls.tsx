@@ -18,15 +18,13 @@ export default function BudgetControls({ enabled, daily, monthly, models }: { en
   return <div className="space-y-6">
     <form className="flex flex-wrap gap-4 items-end" onSubmit={event => {
       event.preventDefault(); const data = new FormData(event.currentTarget)
-      void save({ action: 'policy', daily: Number(data.get('daily')), monthly: Number(data.get('monthly')), enabled: data.get('enabled') === 'on' })
+      void save({ action: 'policy', daily, monthly, enabled: data.get('enabled') === 'on' })
     }}>
-      <label>Daily USD<input className="block border p-2" name="daily" type="number" min="0" max="1000" step="0.01" defaultValue={daily} required /></label>
-      <label>Monthly USD<input className="block border p-2" name="monthly" type="number" min="0" max="1000" step="0.01" defaultValue={monthly} required /></label>
       <label><input name="enabled" type="checkbox" defaultChecked={enabled} /> Allow AI calls</label>
-      <button className="border rounded p-2" disabled={busy}>Save limits</button>
+      <button className="border rounded p-2" disabled={busy}>Save subscription state</button>
       <button type="button" className="border rounded p-2 text-red-600" disabled={busy} onClick={() => void save({ action: 'policy', enabled: false, daily, monthly })}>Stop AI now</button>
     </form>
-    <form className="flex flex-wrap gap-4 items-end" onSubmit={event => {
+    <details><summary>Inactive pay-as-you-go tariffs (paid routing is blocked)</summary><form className="flex flex-wrap gap-4 items-end" onSubmit={event => {
       event.preventDefault(); const data = new FormData(event.currentTarget)
       void save({ action: 'price', modelId: data.get('modelId'), input: Number(data.get('input')), output: Number(data.get('output')), source: data.get('source') })
     }}>
@@ -35,7 +33,7 @@ export default function BudgetControls({ enabled, daily, monthly, models }: { en
       <label>Output USD / 1M tokens<input className="block border p-2" name="output" type="number" min="0.000001" max="10000" step="0.000001" required /></label>
       <label>Verified pricing source<input className="block border p-2" name="source" type="url" maxLength={1000} required /></label>
       <button className="border rounded p-2" disabled={busy}>Confirm tariff for 30 days</button>
-    </form>
+    </form></details>
     <p role="status">{message}</p>
   </div>
 }

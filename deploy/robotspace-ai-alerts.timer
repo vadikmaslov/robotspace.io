@@ -1,0 +1,11 @@
+[Unit]
+Description=Retry RobotSpace AI admin email notifications
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Unit=robotspace-ai-alerts.service
+
+[Install]
+WantedBy=timers.target

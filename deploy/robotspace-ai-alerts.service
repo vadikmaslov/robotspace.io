@@ -1,0 +1,11 @@
+[Unit]
+Description=RobotSpace durable AI admin email delivery
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/robotspace/current/scripts/deliver-ai-alerts.sh
+UMask=0077
+TimeoutStartSec=300
+NoNewPrivileges=true

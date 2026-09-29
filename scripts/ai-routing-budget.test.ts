@@ -8,11 +8,13 @@ test('router accounts for rejection/retry and does not call providers when reser
   const { prisma } = await import('../packages/db/src/index')
   const { encrypt } = await import('../packages/ai/src/encryption')
   const { openaiAdapter, routeRequest } = await import('../packages/ai/src/index')
-  const blob = encrypt('fixture-credential')
+  const blob = encrypt('sk-sp-fixture')
   const credential = ['enc','v1',Buffer.from(blob.keyVersion).toString('base64url'),blob.nonceAuthTag.toString('base64url'),blob.ciphertext.toString('base64url')].join(':')
   const ids = ['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002']
   let failReservation = false, failSettlement = false, calls = 0, transactions = 0, settled = 0
   let providerFailure = false
+  let quotaFailure = false
+  let paidFirst = false
   const undo: (() => void)[] = []
   function replace(target: object, name: string, value: (...args: any[]) => unknown) {
     const before = Reflect.get(target, name)
@@ -21,8 +23,8 @@ test('router accounts for rejection/retry and does not call providers when reser
   }
   try {
     replace(prisma.ai_routes, 'findMany', async () => ids.map((id, rank) => ({ model_id:id, rank, max_attempts:3, cooldown_ms:1 })))
-    replace(prisma.ai_models, 'findMany', async () => ids.map(id => ({ id, provider_id:ids[0], remote_model_id:'fixture' })))
-    replace(prisma.ai_providers, 'findUnique', async () => ({ id:ids[0], enabled:true, adapter_type:'openai', base_url:'https://example.test', request_timeout_ms:100 }))
+    replace(prisma.ai_models, 'findMany', async () => ids.map(id => ({ id, provider_id:id, remote_model_id:'fixture' })))
+    replace(prisma.ai_providers, 'findUnique', async (args) => ({ id:args.where.id, enabled:true, adapter_type:'openai', base_url:paidFirst && args.where.id === ids[0] ? 'https://api.deepseek.com' : 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1', request_timeout_ms:100 }))
     replace(prisma.ai_provider_credentials, 'findFirst', async () => ({ api_key_plain:credential }))
     replace(prisma.exceptions, 'create', async () => ({}))
     replace(prisma, '$transaction', async () => {
@@ -37,6 +39,7 @@ test('router accounts for rejection/retry and does not call providers when reser
     })
     mock.method(openaiAdapter, 'generate', async (_config, request) => {
       calls++; assert.equal(request.options.maxTokens, 1600)
+      if (quotaFailure) throw { type:'QUOTA_EXHAUSTED', message:'fixture quota', retryable:false }
       if (providerFailure) throw { type:'TIMEOUT', message:'fixture timeout', retryable:true }
       return { id:'fixture',model:'fixture',content:'invalid',finishReason:'stop',latencyMs:1,usage:{promptTokens:1,completionTokens:1,totalTokens:2} }
     })
@@ -49,5 +52,9 @@ test('router accounts for rejection/retry and does not call providers when reser
     await assert.rejects(run(() => true)); assert.equal(calls,1)
     failSettlement=false; calls=0; settled=0; transactions=0; providerFailure=true
     await run(); assert.equal(calls,3); assert.equal(settled,3)
+    providerFailure=false; quotaFailure=true; calls=0; settled=0; transactions=0
+    await run(); assert.equal(calls,1); assert.equal(settled,1)
+    quotaFailure=false; paidFirst=true; calls=0; settled=0; transactions=0
+    await run(() => true); assert.equal(calls,1); assert.equal(settled,1)
   } finally { mock.restoreAll(); undo.reverse().forEach(fn => fn()); await prisma.$disconnect() }
 })

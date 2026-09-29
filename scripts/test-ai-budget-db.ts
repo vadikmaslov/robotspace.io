@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { Client, types } from 'pg'
-import { reserveInTransaction, settleInTransaction } from '../packages/ai/src/budget'
+import { reserveInTransaction, settleInTransaction, queueStopAlert } from '../packages/ai/src/budget'
 
 async function main() {
   // Match Prisma's bigint decoding in this pg-based transaction harness.
@@ -30,9 +30,25 @@ async function main() {
     const db = clients[0], adapter = tx(db)
     await db.query('CREATE TABLE ai_models(id uuid PRIMARY KEY)')
     await db.query(await readFile(new URL('../packages/db/migrations/46_ai_spend_guard/migration.sql', import.meta.url), 'utf8'))
+    await db.query(await readFile(new URL('../packages/db/migrations/47_ai_subscription_alerts/migration.sql', import.meta.url), 'utf8'))
     await db.query('INSERT INTO ai_models(id) VALUES ($1)', [model])
     const reserve = () => reserveInTransaction(adapter, model, 'test', request)
     await assert.rejects(transaction(db, reserve), /PRICE_MISSING/)
+    const subscription = await transaction(db, () => reserveInTransaction(adapter, model, 'subscription', request, undefined, true))
+    assert.equal(subscription.micros, 0)
+    await transaction(db, () => settleInTransaction(adapter, subscription, undefined, false, 'QUOTA_EXHAUSTED'))
+    assert.equal((await db.query('SELECT enabled FROM ai_budget_policy')).rows[0].enabled, false)
+    await transaction(db, () => queueStopAlert(adapter, 'SUBSCRIPTION_QUOTA_EXHAUSTED'))
+    assert.equal((await db.query("SELECT count(*)::int n FROM ai_admin_alerts WHERE reason='SUBSCRIPTION_QUOTA_EXHAUSTED'")).rows[0].n, 1)
+    const { deliverOne } = await import('./alerts/delivery.mjs')
+    await deliverOne(db, async () => false)
+    assert.equal((await db.query('SELECT state FROM ai_admin_alerts')).rows[0].state, 'QUEUED')
+    await db.query("UPDATE ai_admin_alerts SET next_attempt_at=now()-interval '1 second'")
+    let sends = 0
+    await Promise.all(clients.map(client => deliverOne(client, async () => { sends++; return true })))
+    assert.equal(sends, 1)
+    assert.equal((await db.query('SELECT state FROM ai_admin_alerts')).rows[0].state, 'SENT')
+    await db.query('UPDATE ai_budget_policy SET enabled=true')
     await db.query("INSERT INTO ai_budget_prices VALUES ($1,1,1,'https://example.test',now(),now()+interval '1 day')", [model])
     const first = await transaction(db, reserve)
     await transaction(db, () => settleInTransaction(adapter, first, { id:'test', model:'test', content:'invalid JSON', finishReason:'stop', latencyMs:1, usage:{promptTokens:2,completionTokens:3,totalTokens:5} }, false, 'VALIDATION_ERROR'))
@@ -59,7 +75,7 @@ async function main() {
     await db.query('UPDATE ai_budget_policy SET enabled=true')
     await db.query("UPDATE ai_budget_prices SET verified_at=now()-interval '2 days',valid_until=now()-interval '1 day'")
     await assert.rejects(transaction(db, reserve), /PRICE_MISSING/)
-    console.log('AI budget SQL passed: concurrent reservations, daily/monthly stop, retained timeout, rejected response billing, idempotent settlement, price expiry, overage stop')
+    console.log('AI budget SQL passed: concurrent reservations, daily/monthly stop, retained timeout, rejected response billing, idempotent settlement, price expiry, overage stop; subscription pause + deduplicated alert, failed email retry + concurrent claim')
   } finally {
     if (created) {
       for (const client of clients) await client.query('ROLLBACK').catch(() => undefined)

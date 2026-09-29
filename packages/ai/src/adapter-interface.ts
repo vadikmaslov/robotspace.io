@@ -51,7 +51,7 @@ export interface GenerateResponse {
 }
 
 export interface NormalizedError {
-  type: 'TIMEOUT' | 'RATE_LIMITED' | 'AUTH_ERROR' | 'SERVER_ERROR' | 'CLIENT_ERROR' | 'NETWORK_ERROR' | 'VALIDATION_ERROR'
+  type: 'TIMEOUT' | 'RATE_LIMITED' | 'QUOTA_EXHAUSTED' | 'AUTH_ERROR' | 'SERVER_ERROR' | 'CLIENT_ERROR' | 'NETWORK_ERROR' | 'VALIDATION_ERROR'
   statusCode?: number
   message: string
   retryable: boolean

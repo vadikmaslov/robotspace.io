@@ -1,5 +1,58 @@
 # AI spending guard
 
+## Active policy: subscription only (owner decision, 2026-09-29)
+
+Direct pay-as-you-go fallback is forbidden, regardless of route ordering or saved
+tariffs. Routing accepts only the exact dedicated Alibaba Token Plan HTTPS endpoint
+`token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` and a subscription
+credential (`sk-sp-` prefix). No query, userinfo, other path or other origin is
+accepted. This check does not establish account entitlement or plan usage terms;
+the operator must comply with the subscription edition's terms. No automatic
+top-up, subscription purchase or renewal is performed by RobotSpace.
+
+Subscription attempts are marked `SUBSCRIPTION`, counted with their reported
+token usage, and are **not USD cost estimates or free requests**. Their zero
+values in USD-only columns mean not applicable. Alibaba enforces the actual
+Credits quota. USD tariff/budget controls below are retained for the inactive
+paid mode; setting a price does not enable paid routing. Historical subscriptions
+and usage in other applications cannot be reconstructed from this ledger.
+
+Quota-exhaustion responses (including `insufficient_quota`) atomically settle the
+attempt, disable new AI reservations, and enqueue an admin email. A plain rate
+limit is temporary: stop this invocation, notify, allow later scheduled runs.
+No paid API is tried in either case. Quota exhaustion requires **manual resume**
+at `/admin/ai/usage` after checking that quota has renewed. In-flight requests
+already admitted before the stop may finish. No date of quota renewal is guessed.
+
+Official source for quota/error behavior:
+https://www.alibabacloud.com/help/en/model-studio/token-plan-team-faq
+https://www.alibabacloud.com/help/en/model-studio/token-plan-overview
+
+## Admin email outbox
+
+Migration 47 adds `ai_admin_alerts`. Reasons are fixed safe codes; prompts,
+credentials, provider error bodies and private recipient addresses are not stored
+in alerts. Deduplication is one alert per reason per UTC day, shared across all
+processes. Email goes to private `AI_ALERT_EMAIL` or existing `SMTP_EMAIL` via
+`EMAIL_TRANSPORT_URL`; the recipient never appears on public pages or in source.
+
+Install `deploy/robotspace-ai-alerts.service` and `.timer` into systemd, then run
+`systemctl enable --now robotspace-ai-alerts.timer`. The independent timer checks
+the queue each minute using `scripts/deliver-ai-alerts.sh`. SMTP uses TLS and
+bounded timeouts. Failed attempts retry after 1, 2, 4, ... minutes (maximum one
+hour), without dropping the alert. Atomic claims, a two-minute lease and lease
+tokens prevent concurrent normal sends; expired leases recover after a crash.
+Delivery is at-least-once: a crash after SMTP acceptance but before DB confirmation
+can still duplicate a message. Stable Message-ID is used, but exactly-once email
+is not promised. SENT means SMTP accepted the recipient, **not** confirmed inbox
+placement. Delivery state/attempt count is visible on the admin usage page.
+
+If PostgreSQL, the VPS or the timer itself is down, this mechanism cannot send.
+External uptime checks and backup-failure alerts remain separate unfinished work.
+Never test quota exhaustion by consuming the actual subscription; use isolated
+SQL tests and mocked providers. One `DELIVERY_TEST` outbox record can verify SMTP
+without stopping production AI.
+
 The guard covers current text generation through `routeRequest` (agents and
 internal Insights summaries). It is an application-side conservative estimate,
 **not a guarantee of the provider invoice**, not an account-wide spending limit,
@@ -15,7 +68,7 @@ per UTC day and USD 10 per UTC calendar month. Zero stops spending. `Stop AI now
 disables new reservations globally without restart. Already admitted calls may
 finish. Server env `AI_EMERGENCY_STOP=true` adds an independent stop after restart.
 
-Tariffs are USD per million input/output tokens, separately for each configured
+For the inactive paid mode, tariffs are USD per million input/output tokens, separately for each configured
 model/provider. Enter a verified HTTPS pricing source and the conservative highest
 applicable rates (no cache/off-peak discounts). A tariff expires in 30 days and
 must be reviewed. Missing/expired tariffs block that model; only another already

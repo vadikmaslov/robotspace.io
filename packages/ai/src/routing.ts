@@ -3,7 +3,8 @@ import { prisma } from '@robotspace/db'
 import type { GenerateRequest, GenerateResponse, ProviderConfig, NormalizedError } from './adapter-interface'
 import { getAdapter } from './index'
 import { decryptStoredCredential } from './encryption'
-import { reserveBudget, settleBudget, type Reservation } from './budget'
+import { reserveBudget, settleBudget, queueStopAlert, type Reservation } from './budget'
+import { isSubscriptionProvider, isSubscriptionEndpoint } from './subscription'
 import { boundedRequest, BudgetDenied } from './budget-math'
 
 type RouteScope = 'SIMPLE_DEFAULT' | 'COMPLEX_DEFAULT' | 'OPERATION_OVERRIDE'
@@ -49,13 +50,14 @@ export async function routeRequest(request: GenerateRequest, options: RoutingOpt
     if (inCooldown(entry.routeModelId)) continue
     const config = await buildProviderConfig(entry.providerId)
     if (!config) continue
+    if (!isSubscriptionProvider(config)) continue
     const adapter = getAdapter(config.adapterType)
 
     for (let attempt = 0; attempt < Math.min(entry.maxAttempts, 3) && attempts < 3; attempt++) {
       let reservation: Reservation
       try {
         reservation = await reserveBudget(entry.routeModelId, options.operationName || options.scope, request,
-          options.budgetLimit === undefined ? undefined : options.budgetLimit - requestReserved / 1000000)
+          options.budgetLimit === undefined ? undefined : options.budgetLimit - requestReserved / 1000000, true)
       } catch (error) {
         // Missing tariff may fall through to a priced model; infrastructure failures never do.
         if (!(error instanceof BudgetDenied)) throw error
@@ -76,9 +78,13 @@ export async function routeRequest(request: GenerateRequest, options: RoutingOpt
         lastError = adapter.normalizeError(error)
         // Timeout/error may still be billable. Never refund or retry without durable accounting.
         await settleBudget(reservation, undefined, false, lastError.type)
+        if (lastError.type === 'QUOTA_EXHAUSTED') {
+          return { response: null, attempts, fallbackChain, error: lastError }
+        }
         if (lastError.type === 'AUTH_ERROR' || lastError.type === 'RATE_LIMITED') {
+          await prisma.$transaction(tx => queueStopAlert(tx, lastError!.type === 'AUTH_ERROR' ? 'SUBSCRIPTION_AUTH_FAILED' : 'SUBSCRIPTION_RATE_LIMITED'))
           if (lastError.type === 'RATE_LIMITED') cooldownMap.set(entry.routeModelId, Date.now() + entry.cooldownMs)
-          break
+          return { response: null, attempts, fallbackChain, error: lastError }
         }
         if (!lastError.retryable || attempt === entry.maxAttempts - 1) break
         await new Promise(resolve => setTimeout(resolve, Math.min(1000 * 2 ** attempt, 10_000)))
@@ -100,6 +106,7 @@ export async function routeRequest(request: GenerateRequest, options: RoutingOpt
   await prisma.exceptions.create({
     data: { type: 'AI_ROUTE_EXHAUSTED', severity: 'medium', state: 'OPEN', reason_summary: `All models failed for ${options.scope}. Chain: ${fallbackChain.join(' -> ')}`, dedup_key: `ai-route-${Date.now()}` },
   }).catch(() => undefined)
+  await prisma.$transaction(tx => queueStopAlert(tx, 'SUBSCRIPTION_ROUTE_UNAVAILABLE'))
   return { response: null, attempts, fallbackChain, error: lastError }
 }
 
@@ -120,6 +127,7 @@ async function buildProviderConfig(providerId: string): Promise<ProviderConfig |
     prisma.ai_provider_credentials.findFirst({ where: { provider_id: providerId, status: 'ACTIVE' }, orderBy: { created_at: 'desc' } }),
   ])
   if (!provider?.enabled || !credential?.api_key_plain) return null
+  if (!isSubscriptionEndpoint(provider.base_url ?? '')) return null
   return { id: provider.id, adapterType: provider.adapter_type, baseUrl: provider.base_url ?? '', apiKey: decryptStoredCredential(credential.api_key_plain), enabled: provider.enabled, requestTimeout: provider.request_timeout_ms ?? 60_000 }
 }
 
