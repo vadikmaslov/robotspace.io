@@ -1,9 +1,12 @@
+import { adminApiDenied } from '../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@robotspace/db'
 
 const RUNNABLE = new Set(['unibot-catalog-sync', 'unibot-brand-import', 'aparobot-company-import', 'official-company-enrichment', 'catalog-wikidata-discovery', 'catalog-orchestrator', 'catalog-commercial-directory-review', 'insights-orchestrator', 'insights-metadata-collector', 'insights-summary-writer', 'market-orchestrator', 'market-statistics-collector'])
 
 export async function GET() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const agents = await prisma.$queryRawUnsafe<any[]>(`
     SELECT a.*, (
       SELECT count(*)::int FROM agent_runs r WHERE r.operation = a.agent_key AND r.state = 'FAILED'
@@ -15,6 +18,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const body = await req.json()
     const agentKey = String(body.agent_key || '')

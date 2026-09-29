@@ -5,7 +5,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./registry-import": "./src/registry-import.ts"
+    "./registry-import": "./src/registry-import.ts",
+    "./registry": "./src/repositories/registry.ts",
+    "./registry-sync": "./src/registry-sync.ts"
   },
   "scripts": {
     "db:generate": "prisma generate",

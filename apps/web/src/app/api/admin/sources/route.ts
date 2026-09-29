@@ -1,7 +1,10 @@
+import { adminApiDenied } from '../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { parseSourceInput } from '../../../../lib/source-catalog'
 
 export async function GET() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const { prisma } = await import('@robotspace/db')
     const sources = await prisma.$queryRawUnsafe(`
@@ -19,6 +22,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const input = parseSourceInput(await req.json(), true)
     const { prisma } = await import('@robotspace/db')

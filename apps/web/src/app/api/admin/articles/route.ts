@@ -1,6 +1,9 @@
+import { adminApiDenied } from '../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const { prisma } = await import('@robotspace/db')
     const body = await req.json().catch(() => null)

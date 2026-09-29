@@ -1,4 +1,7 @@
+import { adminApiDenied } from '../../../../../../lib/admin-api-auth'
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { id } = await params
   try {
     const { prisma } = await import('@robotspace/db')

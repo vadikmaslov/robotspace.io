@@ -4,13 +4,18 @@ import { notFound } from 'next/navigation'
 import { RobotImage } from '../robot-image'
 import { CompareButton } from '../compare-button'
 import { getUnibotRobotImageMap } from '../../../lib/unibot-robot-images'
+import Script from 'next/script'
+import { getRobotEcosystem } from '../../../lib/robot-ecosystem'
+import { RobotEcosystemSections } from './ecosystem'
+import { getManufacturerVoice } from '../../../lib/manufacturer-voice'
+import { ManufacturerStatements } from '../../manufacturer/statements'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const name = slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  return { title: `${name} — Robot Specifications`, description: `Verified specifications, payload, reach, weight, and manufacturer details for ${name}.` }
+  return { title: `${name} — Robot Specifications and Software Ecosystem`, description: `Verified specifications, official resources and compatible software projects for ${name}.`, alternates: { canonical: `/robots/${slug}` } }
 }
 
 export default async function RobotDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -25,8 +30,10 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT robot_public_projections.*, categories.name_en AS category_name
        FROM robot_public_projections
+       JOIN entities entity ON entity.id = robot_public_projections.robot_entity_id
        LEFT JOIN categories ON categories.id = robot_public_projections.category_id
-       WHERE replace(lower(trim(canonical_name)), ' ', '-') = $1
+       WHERE regexp_replace(lower(trim(robot_public_projections.canonical_name)), '\\s+', '-', 'g') = $1
+         AND entity.publication_status = 'PUBLISHED' AND entity.archived_at IS NULL
          AND lifecycle_status = 'ACTIVE'
        LIMIT 1`,
       slug,
@@ -42,9 +49,11 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
       })
       if (rels.length > 0) {
         const rows = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT canonical_name, country_code, founded_year, image_url, summary
-          FROM company_public_projections
-          WHERE company_entity_id = $1::uuid
+          SELECT projection.canonical_name, country_code, founded_year, image_url, summary
+          FROM company_public_projections projection
+          JOIN entities entity ON entity.id = projection.company_entity_id
+          WHERE company_entity_id = $1::uuid AND entity.publication_status = 'PUBLISHED'
+            AND entity.archived_at IS NULL AND projection.status = 'ACTIVE'
         `, rels[0].company_entity_id)
         if (rows.length > 0) manufacturer = rows[0]
       }
@@ -54,6 +63,10 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
   }
 
   if (!robot) notFound()
+  const registryEntity = await prisma.entities.findUnique({ where: { id: robot.robot_entity_id }, select: { slug: true } })
+  const ecosystem = await getRobotEcosystem(prisma, robot.robot_entity_id)
+  const manufacturerRelation = await prisma.robot_company_relations.findFirst({ where: { robot_entity_id: robot.robot_entity_id, relation: 'MANUFACTURES' }, select: { company_entity_id: true } })
+  const manufacturerVoice = manufacturerRelation?.company_entity_id ? await getManufacturerVoice(prisma, manufacturerRelation.company_entity_id, robot.robot_entity_id).catch(() => ({ verified: false, statements: [] })) : null
   const categoryName = robot.category_name || 'Other'
 
   const coreSpecs = [
@@ -62,7 +75,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
     ['Weight', robot.weight_kg != null ? `${robot.weight_kg} kg` : null],
     ['Status', robot.lifecycle_status || 'Active'],
     ['Category', categoryName],
-    ['Verified', robot.last_verified_at ? new Date(robot.last_verified_at).toISOString().slice(0, 10) : 'Today'],
+    ['Verified', robot.last_verified_at ? new Date(robot.last_verified_at).toISOString().slice(0, 10) : 'Not recorded'],
   ].filter(([, v]) => v != null)
   const knownLabels = /^(payload|max(?:imum)?\s*(?:load|payload)|load\s*capacity|lifting\s*capacity|strength|carry(?:ing)?\s*capacity|reach|working\s*radius|maximum\s*reach|arm\s*length|weight|mass|net\s*weight)(?:\s*\[[^\]]+\])?$/i
   // Catalog product pages are evidence, not verified official URLs.  Do not
@@ -72,9 +85,11 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
     .filter(([label, value]) => typeof label === 'string' && typeof value === 'string' && !knownLabels.test(label) && !websiteLabel.test(label.trim()))
     .map(([label, value]) => [label, value] as [string, string])
   const specs = [...coreSpecs, ...extraSpecs]
+  const structuredData = { '@context': 'https://schema.org', '@type': 'Product', name: robot.canonical_name, description: robot.summary ?? undefined, category: categoryName, manufacturer: manufacturer?.canonical_name ? { '@type': 'Organization', name: manufacturer.canonical_name } : undefined, url: `https://robotspace.io/robots/${slug}` }
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 py-8">
+      <Script id="robot-structured-data" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }} />
       <Link href="/robots" className="text-sm inline-block mb-6" style={{ color: 'var(--color-text-muted)' }}>
         ← Back to Robots
       </Link>
@@ -107,6 +122,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
               <>Verified {new Date(robot.last_verified_at).toISOString().slice(0, 10)}</>
             )}
           </div>
+          {registryEntity && <Link href={`/corrections/new?entity=${registryEntity.slug}`} className="mt-4 text-sm underline">Submit correction</Link>}
 
           <div className="flex gap-2 mt-6">
             <Link href={`/quote?robot=${encodeURIComponent(robot.canonical_name)}`}
@@ -121,7 +137,7 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b" style={{ borderColor: 'var(--color-border-color)' }}>
-        {['Overview', 'Specifications'].map((tab: string) => (
+        {['Overview', 'Specifications', 'Ecosystem'].map((tab: string) => (
           <a key={tab} href={`#${tab.toLowerCase()}`}
             className="px-4 py-2.5 text-sm border-b-2 -mb-[1px] transition-colors"
             style={{ color: 'var(--color-text-heading)', borderColor: 'var(--color-accent-cta)', fontWeight: 510 }}>
@@ -178,12 +194,15 @@ export default async function RobotDetailPage({ params }: { params: Promise<{ sl
         </div>
       </section>
 
+      {manufacturerVoice && <ManufacturerStatements voice={manufacturerVoice} title="Manufacturer position on this robot" />}
+      <RobotEcosystemSections ecosystem={ecosystem} robotSlug={registryEntity?.slug ?? slug} />
+
       {news.length > 0 && <section className="pb-8"><h2 className="text-xl font-medium mb-4" style={{ color: 'var(--color-text-heading)' }}>Mentioned in news</h2><div className="grid md:grid-cols-2 gap-4">{news.map(item => <Link key={item.title} href={`/insights/${item.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 80)}`} className="rounded-xl border p-4 hover:bg-[var(--color-bg-elevated)]" style={{ borderColor: 'var(--color-border-color)' }}><div className="text-xs" style={{ color: 'var(--color-text-dim)' }}>{new Date(item.published_at).toISOString().slice(0, 10)}</div><h3 className="mt-2 text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>{item.title}</h3>{item.list_summary && <p className="mt-2 text-sm line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{item.list_summary}</p>}</Link>)}</div></section>}
 
       {/* Source disclosure */}
       <div className="text-center pt-8 border-t" style={{ borderColor: 'var(--color-border-color)' }}>
         <p className="text-xs" style={{ color: 'var(--color-text-dim)' }}>
-          Data sourced from Wikidata · Last verified: {robot.last_verified_at ? new Date(robot.last_verified_at).toISOString().slice(0, 10) : 'Today'}
+          Catalog data · Last verified: {robot.last_verified_at ? new Date(robot.last_verified_at).toISOString().slice(0, 10) : 'Not recorded'}
           {' · '}<Link href="/methodology" className="underline" style={{ color: 'var(--color-text-muted)' }}>Methodology</Link>
         </p>
       </div>

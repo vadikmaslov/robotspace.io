@@ -1,7 +1,10 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllowedUnibotFeedUrl, ImageValidationError } from '../../../../../lib/image-security'
 
 export async function GET() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { prisma } = await import('@robotspace/db')
   
   const configs = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM unibot_import_config LIMIT 1`)
@@ -20,6 +23,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { prisma } = await import('@robotspace/db')
   const body = await req.json()
 

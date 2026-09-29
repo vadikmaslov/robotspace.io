@@ -1,3 +1,4 @@
+import { adminApiDenied } from '../../../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@robotspace/db'
 import { decryptCredential } from '../../../../../../../lib/credential-storage'
@@ -7,6 +8,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { id } = await params
 
   try {

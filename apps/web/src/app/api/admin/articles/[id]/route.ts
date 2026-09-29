@@ -1,6 +1,9 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { id } = await params
   try {
     const { prisma } = await import('@robotspace/db')
@@ -60,6 +63,8 @@ function normalizeNames(value: unknown) { return Array.isArray(value) ? [...new 
 function normalized(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { id } = await params
   try {
     const { prisma } = await import('@robotspace/db')

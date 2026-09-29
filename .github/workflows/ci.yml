@@ -67,6 +67,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: MVP security regressions
+        run: |
+          pnpm exec tsx --test scripts/mvp-security.test.ts
+          pnpm exec tsx scripts/test-admin-login-db.ts
+
       - name: Static checks
         run: pnpm lint
 

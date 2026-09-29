@@ -44,6 +44,12 @@ export default async function AdminDashboardPage() {
           </div>
         ))}
       </section>
+
+      <section className="p-6 rounded-xl" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
+        <h2 className="text-lg font-medium" style={{ color: 'var(--color-text-heading)' }}>Registry pilot</h2>
+        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>Review the fixed cohort and 30/60/90-day evidence before deciding whether community participation is working.</p>
+        <Link href="/admin/pilot" className="mt-3 inline-block text-sm underline">Open pilot dashboard</Link>
+      </section>
     </div>
   )
 }

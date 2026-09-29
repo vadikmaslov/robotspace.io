@@ -8,6 +8,8 @@ import { getUnibotRobotImageMap } from '../../../../lib/unibot-robot-images'
 import { getEntitySourceLinks, type EntitySourceLink } from '../../../../lib/entity-source-links'
 import { EntitySourceLinks } from '../../entity-source-links'
 import { ROBOT_CATEGORIES } from '../../../../lib/robot-categories'
+import { robotResourceTypes } from '../../../../lib/robot-ecosystem'
+import { addRobotResource, rejectRobotResource } from './resource-actions'
 
 export default async function AdminRobotEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -17,6 +19,7 @@ export default async function AdminRobotEditPage({ params }: { params: Promise<{
   let sourceLinks: EntitySourceLink[] = []
   let brands: Array<{ id: string; name: string }> = []
   let categories: Array<{ id: string; name: string }> = []
+  let resources: Array<{ id: string; resource_type: string; title: string; url: string; evidence_url: string; verification_status: string; verified_at: Date }> = []
 
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM robot_public_projections WHERE robot_entity_id = $1::uuid LIMIT 1`, id)
@@ -34,6 +37,7 @@ export default async function AdminRobotEditPage({ params }: { params: Promise<{
       })
     }
     sourceLinks = await getEntitySourceLinks(id)
+    resources = await prisma.robot_resources.findMany({ where: { robot_entity_id: id }, orderBy: [{ verification_status: 'asc' }, { resource_type: 'asc' }] })
     brands = (await prisma.company_public_projections.findMany({ orderBy: { canonical_name: 'asc' } }))
       .filter(company => company.company_entity_id && company.canonical_name)
       .map(company => ({ id: company.company_entity_id!, name: company.canonical_name! }))
@@ -81,6 +85,12 @@ export default async function AdminRobotEditPage({ params }: { params: Promise<{
       </div>
 
       <EntitySourceLinks links={sourceLinks} />
+
+      <section className="p-5 rounded-xl space-y-5" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
+        <div><h2 className="text-lg font-medium">Official ecosystem resources</h2><p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>Only independently checked first-party links belong here. The evidence URL records why the link is treated as official.</p></div>
+        {resources.length > 0 && <div className="space-y-3">{resources.map(resource => <article key={resource.id} className="rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--color-border-color)' }}><div className="flex flex-wrap justify-between gap-3"><div><span className="font-medium">{resource.resource_type}</span> · {resource.title}<a className="block mt-1 underline break-all" href={resource.url} target="_blank" rel="noopener noreferrer">{resource.url}</a><a className="block mt-1 text-xs underline break-all" href={resource.evidence_url} target="_blank" rel="noopener noreferrer">Evidence</a><span className="block mt-1 text-xs">{resource.verification_status.toLowerCase()} · {resource.verified_at.toISOString().slice(0, 10)}</span></div>{resource.verification_status === 'VERIFIED' && <form action={rejectRobotResource}><input type="hidden" name="robot" value={id} /><input type="hidden" name="resource" value={resource.id} /><button className="rounded border px-3 py-1.5">Reject</button></form>}</div></article>)}</div>}
+        <form action={addRobotResource} className="grid gap-3"><input type="hidden" name="robot" value={id} /><label className="text-sm">Type<select name="type" required className="mt-1 block w-full rounded-md border p-2">{robotResourceTypes.map(type => <option key={type} value={type}>{type.replace('_', ' ')}</option>)}</select></label><label className="text-sm">Public label<input name="title" required maxLength={255} placeholder="Official documentation" className="mt-1 block w-full rounded-md border p-2" /></label><label className="text-sm">Resource URL<input name="url" type="url" required defaultValue={robot.official_url ?? ''} className="mt-1 block w-full rounded-md border p-2" /></label><label className="text-sm">Verification evidence URL<input name="evidence" type="url" required placeholder="https://manufacturer.example/robots/..." className="mt-1 block w-full rounded-md border p-2" /></label><button className="rounded-md border px-4 py-2 w-fit">Add verified resource</button></form>
+      </section>
     </div>
   )
 }

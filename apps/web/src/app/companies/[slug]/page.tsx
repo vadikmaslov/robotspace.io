@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { RobotImage } from '../../robots/robot-image'
 import { getUnibotRobotImageMap } from '../../../lib/unibot-robot-images'
+import { getManufacturerVoice } from '../../../lib/manufacturer-voice'
+import { ManufacturerStatements } from '../../manufacturer/statements'
+import Script from 'next/script'
 
 const COUNTRY_NAMES: Record<string, string> = {
   US: 'United States', DE: 'Germany', JP: 'Japan', CH: 'Switzerland', DK: 'Denmark', CN: 'China',
@@ -19,7 +22,7 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const name = slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  return { title: `${name} — Company Profile`, description: `Verified company profile, product catalog, and key facts for ${name}.` }
+  return { title: `${name} — Company Profile`, description: `Company profile, product catalog, and key facts for ${name}.`, alternates: { canonical: `/companies/${slug}` } }
 }
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -37,6 +40,8 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
              entity.slug
       FROM company_public_projections projection
       JOIN entities entity ON entity.id = projection.company_entity_id
+      WHERE entity.publication_status = 'PUBLISHED' AND entity.archived_at IS NULL
+        AND projection.status = 'ACTIVE'
     `)
     const normalizedSlug = normalizeCompanySlug(decodeURIComponent(slug))
     company = companies.find((c: any) => c.slug === slug)
@@ -46,7 +51,9 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
       const rels = await prisma.robot_company_relations.findMany({
         where: { company_entity_id: company.company_entity_id },
       })
-      const robotIds = rels.map(r => r.robot_entity_id)
+      const relatedIds = rels.map(r => r.robot_entity_id).filter((id): id is string => Boolean(id))
+      const publicRobots = await prisma.entities.findMany({ where: { id: { in: relatedIds }, publication_status: 'PUBLISHED', archived_at: null }, select: { id: true } })
+      const robotIds = publicRobots.map(robot => robot.id)
       if (robotIds.length > 0) {
         robots = await prisma.robot_public_projections.findMany({
           where: { robot_entity_id: { in: robotIds.filter((id): id is string => Boolean(id)) }, lifecycle_status: 'ACTIVE' },
@@ -63,9 +70,20 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   } catch {}
 
   if (!company) notFound()
+  const voice = await getManufacturerVoice(prisma, company.company_entity_id).catch(() => ({ verified: false, statements: [] }))
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: company.canonical_name,
+    url: `https://robotspace.io/companies/${company.slug}`,
+    description: company.summary ?? undefined,
+    foundingDate: company.founded_year ? String(company.founded_year) : undefined,
+    address: company.country_code ? { '@type': 'PostalAddress', addressCountry: company.country_code } : undefined,
+  }
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 py-8">
+      <Script id="company-structured-data" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }} />
       <Link href="/companies" className="text-sm inline-block mb-6" style={{ color: 'var(--color-text-muted)' }}>← Back to Companies</Link>
 
       {/* Hero */}
@@ -75,17 +93,20 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
           {company.image_url ? (
             <img src={company.image_url} alt="" className="w-full h-full object-contain" />) : <span>🏢</span>}
         </div>
-        <div>
-          <h1 className="text-[40px] font-semibold tracking-tight" style={{ color: 'var(--color-text-heading)' }}>{company.canonical_name}</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-[40px] break-words font-semibold tracking-tight" style={{ color: 'var(--color-text-heading)' }}>{company.canonical_name}</h1>
           <div className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
             {countryName(company.country_code || '—')}{company.founded_year ? ` · Founded ${company.founded_year}` : ''}
           </div>
+          <div className="mt-3 flex flex-wrap gap-3 items-center text-sm">{voice.verified && <span className="rounded-full border px-3 py-1" style={{ borderColor: 'var(--color-accent-b2b)' }}>Verified manufacturer</span>}<Link href={`/manufacturer?company=${encodeURIComponent(company.slug)}`} className="underline">{voice.verified ? 'Manage manufacturer access' : 'Claim this company'}</Link></div>
           <div className="flex gap-4 mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
             <span>Robots: <strong style={{ color: 'var(--color-text-heading)' }}>{robots.length}</strong></span>
             {company.official_url && <span>Website: <strong style={{ color: 'var(--color-text-heading)' }}>{new URL(company.official_url).hostname}</strong></span>}
           </div>
         </div>
       </div>
+
+      <ManufacturerStatements voice={voice} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">

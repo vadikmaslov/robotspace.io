@@ -1,6 +1,7 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { createHash } from 'node:crypto'
 import { prisma } from '@robotspace/db'
+import { syncGitHubProjects } from '@robotspace/db/registry-sync'
 
 type ScheduledAgent = {
   id: string
@@ -149,7 +150,7 @@ async function scheduleDueAgents() {
 async function processPendingAgentRuns() {
   const runs = await prisma.$queryRawUnsafe<AgentRun[]>(`
     SELECT id, operation FROM agent_runs
-    WHERE state = 'PENDING' AND operation IN ('unibot-catalog-sync', 'unibot-brand-import', 'aparobot-company-import', 'official-company-enrichment', 'catalog-wikidata-discovery', 'catalog-orchestrator', 'catalog-commercial-directory-review', 'insights-orchestrator', 'insights-metadata-collector', 'insights-summary-writer', 'market-orchestrator', 'market-statistics-collector')
+    WHERE state = 'PENDING' AND operation IN ('unibot-catalog-sync', 'unibot-brand-import', 'aparobot-company-import', 'official-company-enrichment', 'catalog-wikidata-discovery', 'catalog-orchestrator', 'catalog-commercial-directory-review', 'insights-orchestrator', 'insights-metadata-collector', 'insights-summary-writer', 'market-orchestrator', 'market-statistics-collector', 'registry-github-sync')
     ORDER BY created_at ASC LIMIT 3
   `)
   for (const run of runs) await executeRun(run)
@@ -178,6 +179,8 @@ async function executeRun(run: AgentRun) {
           ? await discoverAuthorisedCatalogDirectories(run.id)
           : run.operation === 'market-orchestrator' || run.operation === 'market-statistics-collector'
             ? await collectMarketStatistics(run.id)
+          : run.operation === 'registry-github-sync'
+            ? await refreshRegistryGitHub(run.id)
           : run.operation === 'insights-orchestrator' ? await runInsightsOrchestrator(run.id) : run.operation === 'insights-metadata-collector' ? await collectInsightsMetadata(run.id) : run.operation === 'insights-summary-writer' ? await writeInsightsSummaries(run.id) : await runCatalogOrchestrator(run.id)
     await prisma.$executeRawUnsafe(`UPDATE agent_runs SET state = 'SUCCEEDED', finished_at = now(), error_code = NULL WHERE id = $1::uuid`, run.id)
     await prisma.$executeRawUnsafe(`UPDATE scheduled_agents SET last_finished_at = now(), last_state = 'SUCCEEDED', is_enabled = CASE WHEN run_mode = 'ONCE' THEN false ELSE is_enabled END, updated_at = now() WHERE agent_key = $1`, run.operation)
@@ -192,6 +195,12 @@ async function executeRun(run: AgentRun) {
     await log(run.id, 'ERROR', 'Agent failed', { error: message })
     console.error(`[agents] ${run.operation} failed: ${message}`)
   }
+}
+
+async function refreshRegistryGitHub(runId: string) {
+  const result = await syncGitHubProjects(prisma)
+  await log(runId, result.enabled ? 'INFO' : 'WARN', result.enabled ? 'Registry GitHub refresh finished' : 'Registry GitHub refresh skipped because registry.sync is disabled', result)
+  return result
 }
 
 type MarketObservation = {

@@ -1,7 +1,10 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextResponse } from 'next/server'
 
 /** Queue the durable worker instead of running a long catalog import in HTTP. */
 export async function POST() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { prisma } = await import('@robotspace/db')
   try {
     const runs = await prisma.$queryRawUnsafe<Array<{ id: string }>>(

@@ -80,12 +80,12 @@ export async function requestQuote(formData: FormData) {
       data: {
         contact_name: contactName, email, company_name: companyName || null, country: country || null,
         message: [robot && `Robot: ${robot}`, message].filter(Boolean).join('\n') || null,
-        consent_version: 'privacy-v1', consent_timestamp: new Date(),
+        consent_version: 'privacy-2026-09-29', consent_timestamp: new Date(),
       },
     })
     await sendOperationsEmail({
       subject: '[RobotSpace] New quote request',
-      text: [`Request ID: ${quote.id}`, `Contact: ${contactName}`, `Email: ${email}`, `Company: ${companyName || 'Not provided'}`, `Country: ${country || 'Not provided'}`, '', message || 'No message'].join('\n'),
+      text: [`Request ID: ${quote.id}`, `Contact: ${contactName}`, `Email: ${email}`, `Company: ${companyName || 'Not provided'}`, `Country: ${country || 'Not provided'}`, `Subject / robot: ${robot || 'Not provided'}`, '', message || 'No message'].join('\n'),
     })
   } catch (error) {
     redirect(`/quote?error=${encodeURIComponent(error instanceof Error ? error.message : 'Unable to send request.')}`)

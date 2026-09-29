@@ -1,7 +1,10 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { importGitHubProject } from '@robotspace/db/registry-import'
 
 export async function POST(request: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const body = await request.json() as { repository_url?: unknown }
     if (typeof body.repository_url !== 'string') return NextResponse.json({ error: 'repository_url is required' }, { status: 400 })

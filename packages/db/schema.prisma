@@ -5,6 +5,18 @@ model registry_users {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 }
 
+/// Append-only, evidence-backed reputation ledger. Migration 41 owns checks and triggers.
+model registry_reputation_events {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id String @db.Uuid
+  event_type String
+  reference_id String @db.Uuid
+  points Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([user_id, event_type, reference_id])
+  @@index([user_id, created_at(sort: Desc)], map: "registry_reputation_events_user_created")
+}
+
 /// Foreign keys, checks and partial indexes are managed by migration 36.
 model registry_accounts {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -33,6 +45,19 @@ model developer_profiles {
   reputation Int @default(0)
 }
 
+/// Moderation results shown to the Registry user; delivery is in-app only.
+model registry_notifications {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id String @db.Uuid
+  kind String
+  entity_id String? @db.Uuid
+  compatibility_id String? @db.Uuid
+  message String @db.VarChar(500)
+  read_at DateTime? @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@index([user_id, created_at(sort: Desc)], map: "registry_notifications_user_created")
+}
+
 /// Foreign keys, checks and partial indexes are managed by migration 36.
 model entity_claims {
   @@index([claimant_id, status], map: "registry_claim_user")
@@ -46,6 +71,32 @@ model entity_claims {
   checked_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// DNS proof for a company claim; migration 43 enforces verification.
+model manufacturer_claim_proofs {
+  claim_id String @id @db.Uuid
+  domain String @db.VarChar(253)
+  token String @db.VarChar(100)
+  expires_at DateTime @db.Timestamptz(6)
+  verified_at DateTime? @db.Timestamptz(6)
+}
+
+/// Immutable official statements separate from editorial and community data.
+model manufacturer_statements {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_entity_id String @db.Uuid
+  robot_entity_id String? @db.Uuid
+  claim_id String @db.Uuid
+  actor_id String @db.Uuid
+  statement_type String
+  title String @db.VarChar(255)
+  statement_value String? @db.VarChar(1000)
+  url String? @db.VarChar(2000)
+  evidence_url String @db.VarChar(2000)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  @@index([company_entity_id, created_at(sort: Desc)], map: "manufacturer_statements_company_created")
+  @@index([robot_entity_id, created_at(sort: Desc)], map: "manufacturer_statements_robot_created")
 }
 
 /// Foreign keys, checks and partial indexes are managed by migration 36.
@@ -151,13 +202,36 @@ model repository_snapshots {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   project_id String @db.Uuid
   observed_at DateTime @default(now()) @db.Timestamptz(6)
+  checked_at DateTime @default(now()) @db.Timestamptz(6)
+  fingerprint String? @db.VarChar(64)
   stars Int?
   forks Int?
   open_issues Int?
   latest_release String? @db.VarChar(255)
   last_commit_at DateTime? @db.Timestamptz(6)
   sync_status String
+  error_code String? @db.VarChar(80)
+  error_message String? @db.VarChar(500)
+  rate_limit_reset_at DateTime? @db.Timestamptz(6)
   @@unique([project_id, observed_at])
+  @@index([project_id, checked_at(sort: Desc)], map: "repository_snapshots_project_checked")
+}
+
+/// Verified first-party links for a robot. Migration 40 owns checks and FK constraints.
+model robot_resources {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  robot_entity_id String @db.Uuid
+  resource_type String
+  title String @db.VarChar(255)
+  url String @db.VarChar(2000)
+  evidence_url String @db.VarChar(2000)
+  verification_status String @default("VERIFIED")
+  verified_at DateTime @default(now()) @db.Timestamptz(6)
+  created_by String @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([robot_entity_id, resource_type, url])
+  @@index([robot_entity_id, verification_status, resource_type], map: "robot_resources_public")
 }
 
 
@@ -871,6 +945,15 @@ model robot_public_projections {
   weight_kg               Decimal?  @db.Decimal(10, 2)
   image_url               String?   @db.VarChar(2000)
   unibot_id               String?   @db.VarChar(50)
+}
+
+/// Stable, deliberately limited robot sample used for the phase 11 pilot.
+/// It never stores visitor identifiers or contributor profile data.
+model pilot_robot_cohort {
+  robot_entity_id String   @id @db.Uuid
+  added_at        DateTime @default(now()) @db.Timestamptz(6)
+  added_by        String   @default("pilot-selection-v1") @db.VarChar(255)
+  selection_reason Json    @default("{}")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

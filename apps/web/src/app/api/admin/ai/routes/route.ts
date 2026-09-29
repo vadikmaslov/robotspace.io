@@ -1,6 +1,9 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const { prisma } = await import('@robotspace/db')
     const body = await req.json()
@@ -29,6 +32,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const { prisma } = await import('@robotspace/db')
     const { id, direction } = await req.json()
@@ -51,6 +56,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const { prisma } = await import('@robotspace/db')
     const id = req.nextUrl.searchParams.get('id')

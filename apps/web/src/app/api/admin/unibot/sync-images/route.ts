@@ -1,8 +1,11 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextResponse } from 'next/server'
 import { getAllowedRemoteImageUrl, MAX_IMAGE_BYTES, validateImageBuffer } from '../../../../../lib/image-security'
 import { storeImage } from '../../../../../lib/image-storage'
 
 export async function POST() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { prisma } = await import('@robotspace/db')
   const results: string[] = []
   let brandsUpdated = 0

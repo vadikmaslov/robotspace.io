@@ -1,8 +1,11 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextResponse } from 'next/server'
 import { prisma } from '@robotspace/db'
 import { AGENT_ROUTING_RULES } from '@robotspace/ai'
 
 export async function GET() {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   try {
     const providers = await prisma.ai_providers.findMany({ where: { enabled: true } })
     let allModels: any[] = []

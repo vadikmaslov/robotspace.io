@@ -210,14 +210,14 @@ export function Footer() {
           </div>
           {[
             { title: 'Explore', links: ['Robots', 'Companies', 'Compare', 'Insights'] },
-            { title: 'Resources', links: ['Methodology', 'Sources', 'Privacy', 'Terms'] },
-            { title: 'Contact', links: ['Submit', 'Request a Quote', 'Status'] },
+            { title: 'Resources', links: ['FAQ', 'Methodology', 'Privacy'] },
+            { title: 'Contact', links: ['Submit', 'Request a Quote'] },
           ].map(col => (
             <div key={col.title}>
               <div className="text-[13px] uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-dim)' }}>{col.title}</div>
               <div className="space-y-2">
                 {col.links.map(link => (
-                  <a key={link} href={`/${link.toLowerCase().replace(/\s+/g, '-')}`}
+                  <a key={link} href={link === 'Request a Quote' ? '/quote' : `/${link.toLowerCase().replace(/\s+/g, '-')}`}
                     className="block text-[13px] hover:underline transition-colors"
                     style={{ color: 'var(--color-text-muted)' }}>
                     {link}

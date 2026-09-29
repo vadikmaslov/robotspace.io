@@ -9,6 +9,7 @@ import Google from 'next-auth/providers/google'
 import GitHub from 'next-auth/providers/github'
 import type { NextAuthConfig } from 'next-auth'
 import { registerGitHubIdentity, registryUserForGitHub } from './lib/registry-identity'
+import { allowAdminPasswordAttempt } from './lib/admin-login-limit'
 
 function constantTimeEqual(left: string, right: string) {
   if (left.length !== right.length) return false
@@ -29,7 +30,8 @@ export const authConfig: NextAuthConfig = {
       credentials: {
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        if (!(await allowAdminPasswordAttempt(request))) return null
         const password = typeof credentials?.password === 'string' ? credentials.password : ''
         const expectedPassword = process.env.ADMIN_PASSWORD
 

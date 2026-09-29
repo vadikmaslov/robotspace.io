@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@robotspace/db'
+import { awardReputation } from './registry-reputation'
 import { normalizeGitHubRepository } from '@robotspace/db/registry-import'
 import { freshGitHubGrant } from './registry-identity'
 
@@ -117,7 +118,10 @@ export async function claimProject(db: PrismaClient, userId: string, slug: strin
     let claim = existing!
     const evidence = await tx.registry_evidence.create({ data: { claim_id: claim.id, submitted_by: userId, url: proof.repositoryUrl, kind: 'REPOSITORY' } })
     if (project.github_repository_id === null) await tx.software_packages.update({ where: { id: project.id }, data: { github_repository_id: proof.repositoryId } })
-    if (claim.status === 'PENDING') claim = await tx.entity_claims.update({ where: { id: claim.id }, data: { status: 'VERIFIED', verification_method: 'GITHUB_REPOSITORY_ADMIN', checked_at: new Date(), updated_at: new Date() } })
+    if (claim.status === 'PENDING') {
+      claim = await tx.entity_claims.update({ where: { id: claim.id }, data: { status: 'VERIFIED', verification_method: 'GITHUB_REPOSITORY_ADMIN', checked_at: new Date(), updated_at: new Date() } })
+      await awardReputation(tx, userId, 'CLAIM_VERIFIED', entity.id)
+    }
     else claim = await tx.entity_claims.update({ where: { id: claim.id }, data: { checked_at: new Date(), updated_at: new Date() } })
     await tx.registry_roles.upsert({ where: { user_id_role: { user_id: userId, role: 'VERIFIED_DEVELOPER' } }, create: { user_id: userId, role: 'VERIFIED_DEVELOPER' }, update: {} })
     await tx.registry_changes.create({ data: { claim_id: claim.id, actor_id: userId, evidence_id: evidence.id, action: existing?.status === 'VERIFIED' ? 'CLAIM_RECHECKED' : 'CLAIM_VERIFIED', after_value: { status: 'VERIFIED', method: 'GITHUB_REPOSITORY_ADMIN' } } })

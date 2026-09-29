@@ -27,7 +27,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
       `SELECT count(*)::int AS count
        FROM company_public_projections projection
        JOIN entities entity ON entity.id = projection.company_entity_id
-       WHERE entity.publication_status = 'PUBLISHED'`,
+       WHERE entity.publication_status = 'PUBLISHED' AND entity.archived_at IS NULL AND projection.status = 'ACTIVE'`,
     )
     totalCompanies = totals[0]?.count ?? 0
     const totalPages = Math.max(1, Math.ceil(totalCompanies / PAGE_SIZE))
@@ -37,7 +37,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
        FROM company_public_projections projection
        JOIN entities entity ON entity.id = projection.company_entity_id
        LEFT JOIN robot_company_relations relation ON relation.company_entity_id = projection.company_entity_id
-       WHERE entity.publication_status = 'PUBLISHED'
+       WHERE entity.publication_status = 'PUBLISHED' AND entity.archived_at IS NULL AND projection.status = 'ACTIVE'
        GROUP BY projection.id, entity.slug
        ORDER BY projection.canonical_name ASC, entity.slug ASC
        LIMIT $1 OFFSET $2`,

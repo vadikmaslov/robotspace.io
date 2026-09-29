@@ -37,7 +37,8 @@ export default async function RobotsCatalogPage({
     })).map(category => ({ id: category.id, slug: category.slug, name: category.name_en }))
     for (const category of categories) categoryNameById[category.id] = category.name
 
-    const where: any = { lifecycle_status: 'ACTIVE' }
+    const publicIds = await prisma.entities.findMany({ where: { entity_type: 'ROBOT', publication_status: 'PUBLISHED', archived_at: null }, select: { id: true } })
+    const where: any = { lifecycle_status: 'ACTIVE', AND: [{ robot_entity_id: { in: publicIds.map(entity => entity.id) } }] }
     if (params.q) {
       where.canonical_name = { contains: params.q, mode: 'insensitive' }
     }
@@ -70,9 +71,11 @@ export default async function RobotsCatalogPage({
         const companyIds = [...new Set(rels.map((r: any) => r.company_entity_id).filter(Boolean))]
         // Use raw SQL to get image_url (Prisma client not regenerated after schema change)
         const companies = companyIds.length > 0 ? await prisma.$queryRawUnsafe<any[]>(`
-          SELECT company_entity_id, canonical_name, image_url
-          FROM company_public_projections
-          WHERE company_entity_id = ANY($1::uuid[])
+          SELECT company_entity_id, projection.canonical_name, image_url
+          FROM company_public_projections projection
+          JOIN entities entity ON entity.id = projection.company_entity_id
+          WHERE company_entity_id = ANY($1::uuid[]) AND entity.publication_status = 'PUBLISHED'
+            AND entity.archived_at IS NULL AND projection.status = 'ACTIVE'
         `, companyIds) : []
         const names: Record<string, string> = {}
         for (const c of companies) { names[c.company_entity_id] = c.canonical_name; if (c.image_url) mfrImageMap[c.company_entity_id] = c.image_url; mfrSlugMap[c.company_entity_id] = c.canonical_name?.toLowerCase().replace(/\s+/g, '-') }

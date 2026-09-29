@@ -41,8 +41,8 @@ export const settingsService = {
   async getRecipients(): Promise<{ notificationEmail: string; quoteEmail: string }> {
     const data = await this.get<{ notification_email: string; quote_email: string }>('recipients')
     return {
-      notificationEmail: data?.notification_email ?? 'vadikmaslov@gmail.com',
-      quoteEmail: data?.quote_email ?? 'vadikmaslov@gmail.com',
+      notificationEmail: data?.notification_email || process.env.SMTP_EMAIL || '',
+      quoteEmail: data?.quote_email || process.env.SMTP_EMAIL || '',
     }
   },
 

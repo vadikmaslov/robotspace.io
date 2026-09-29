@@ -1,7 +1,10 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { getEntitySourceLinks } from '../../../../../lib/entity-source-links'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const p = await params
   const id = p.id
   try {
@@ -17,6 +20,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const p = await params
   const id = p.id
   try {
@@ -66,6 +71,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const p = await params
   const id = p.id
   try {

@@ -9,11 +9,11 @@ export default function AdminSettingsPage() {
         <h2 className="text-lg font-medium" style={{ color: 'var(--color-text-heading)' }}>Email Recipients</h2>
         <div className="p-4 rounded-xl" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
           <div className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-dim)' }}>Notification Email</div>
-          <div className="text-sm font-mono" style={{ color: 'var(--color-text-body)' }}>vadikmaslov@gmail.com</div>
+          <div className="text-sm" style={{ color: 'var(--color-text-body)' }}>Configured privately on the server (SMTP_EMAIL)</div>
         </div>
         <div className="p-4 rounded-xl" style={{ background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-card)' }}>
           <div className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-dim)' }}>Quote Request Email</div>
-          <div className="text-sm font-mono" style={{ color: 'var(--color-text-body)' }}>vadikmaslov@gmail.com</div>
+          <div className="text-sm" style={{ color: 'var(--color-text-body)' }}>Configured privately on the server (SMTP_EMAIL)</div>
         </div>
       </section>
 

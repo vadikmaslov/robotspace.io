@@ -1,6 +1,5 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { Footer, ThemeToggle, themeScript } from '@robotspace/ui'
 import Link from 'next/link'
 import './globals.css'
@@ -28,10 +27,14 @@ const NAV_LINKS = [
   { href: '/companies', label: 'Companies' },
   { href: '/registry', label: 'Registry' },
   { href: '/market', label: 'Market' },
-  { href: '/compare', label: 'Compare' },
-  { href: '/integrators', label: 'Map' },
   { href: '/insights', label: 'Insights' },
-  { href: '/submit', label: 'Submit' },
+]
+
+const MORE_LINKS = [
+  { href: '/compare', label: 'Compare robots' },
+  { href: '/developers', label: 'Developers' },
+  { href: '/integrators', label: 'Integrator map' },
+  { href: '/submit', label: 'Submit a robot' },
 ]
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -39,9 +42,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,510;14..32,590&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
       </head>
       <body style={{
         background: 'var(--color-bg-canvas, #08090a)',
@@ -51,24 +51,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         lineHeight: '1.5',
         WebkitFontSmoothing: 'antialiased',
       }}>
-        <Script
-          id="yandex-metrika"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(m,e,t,r,i,k,a){
-                m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                m[i].l=1*new Date();
-                for (var j = 0; j < document.scripts.length; j++) { if (document.scripts[j].src === r) { return; } }
-                k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
-              })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=111096093', 'ym');
-              ym(111096093, 'init', { ssr:true, webvisor:true, clickmap:true, ecommerce:'dataLayer', referrer:document.referrer, url:location.href, accurateTrackBounce:true, trackLinks:true });
-            `,
-          }}
-        />
-        <noscript>
-          <div><img src="https://mc.yandex.ru/watch/111096093" style={{ position: 'absolute', left: '-9999px' }} alt="" /></div>
-        </noscript>
         <MobileNav />
         <main>{children}</main>
         <Footer />
@@ -89,7 +71,7 @@ function MobileNav() {
           </Link>
 
           {/* Desktop links */}
-          <ul className="hidden md:flex gap-2 ml-12 list-none">
+          <ul className="hidden lg:flex gap-1 ml-8 list-none">
             {NAV_LINKS.map(link => (
               <li key={link.href}>
                 <Link href={link.href} className="text-[13px] px-3 py-2 rounded-md transition-colors hover:bg-[rgba(255,255,255,0.04)]"
@@ -100,34 +82,36 @@ function MobileNav() {
             ))}
           </ul>
 
-          <div className="ml-auto flex items-center gap-3">
+          <details className="hidden lg:block relative ml-1">
+            <summary className="cursor-pointer list-none text-[13px] px-3 py-2 rounded-md hover:bg-[rgba(255,255,255,0.04)]" style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>More</summary>
+            <div className="absolute right-0 top-10 w-44 rounded-md border p-1 shadow-lg" style={{ background: 'var(--color-nav-overlay-bg)', borderColor: 'var(--color-border-color)' }}>
+              {MORE_LINKS.map(link => <Link key={link.href} href={link.href} className="block rounded px-3 py-2 text-sm hover:bg-[var(--color-hover-bg)]" style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>{link.label}</Link>)}
+            </div>
+          </details>
+
+          <form action="/search" method="GET" className="hidden lg:block ml-auto max-w-[190px]">
+            <label><span className="sr-only">Search RobotSpace</span><input name="q" type="search" placeholder="Search" className="w-full rounded-md border px-3 py-1.5 text-[13px] outline-none" style={{ background: 'var(--color-input-bg)', color: 'var(--color-text-body)', borderColor: 'var(--color-input-border)' }} /></label>
+          </form>
+
+          <div className="ml-auto lg:ml-3 flex items-center gap-3">
             <ThemeToggle />
-            {/* Hamburger */}
-            <label className="md:hidden cursor-pointer flex flex-col gap-1 p-2" htmlFor="mobile-menu-toggle">
-              <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
-              <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
-              <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
-            </label>
+            <details className="lg:hidden">
+              <summary aria-label="Open navigation menu" className="cursor-pointer list-none flex flex-col gap-1 p-2">
+                <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
+                <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
+                <span className="block w-[18px] h-[1.5px] bg-[var(--color-text-body,#d0d6e0)]" />
+              </summary>
+              <div className="fixed top-14 left-0 right-0 z-40 max-h-[calc(100dvh-3.5rem)] overflow-y-auto backdrop-blur-xl border-b p-6 space-y-2"
+                style={{ background: 'var(--color-nav-overlay-bg)', borderColor: 'var(--color-border-color, #23252a)' }}>
+                {NAV_LINKS.map(link => <Link key={link.href} href={link.href} className="block text-sm py-2 px-3 rounded-md transition-colors" style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>{link.label}</Link>)}
+                {MORE_LINKS.map(link => <Link key={link.href} href={link.href} className="block text-sm py-2 px-3 rounded-md transition-colors" style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>{link.label}</Link>)}
+                <Link href="/search" className="block text-sm py-2 px-3 rounded-md transition-colors" style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>Search</Link>
+                <Link href="/quote" className="block text-center mt-4 bg-white text-[#08090a] rounded-full px-4 py-2 text-[13px] font-medium">Request a Quote</Link>
+              </div>
+            </details>
           </div>
         </div>
       </nav>
-
-      {/* Mobile menu (hidden by default, shown via checkbox hack) */}
-      <input type="checkbox" id="mobile-menu-toggle" className="hidden peer" />
-      <div className="hidden peer-checked:block md:hidden fixed top-14 left-0 right-0 z-40 backdrop-blur-xl border-b p-6 space-y-2"
-        style={{ background: 'var(--color-nav-overlay-bg)', borderColor: 'var(--color-border-color, #23252a)' }}>
-        {NAV_LINKS.map(link => (
-          <Link key={link.href} href={link.href}
-            className="block text-sm py-2 px-3 rounded-md transition-colors"
-            style={{ color: 'var(--color-nav-link, #d0d6e0)' }}>
-            {link.label}
-          </Link>
-        ))}
-        <Link href="/quote"
-          className="block text-center mt-4 bg-white text-[#08090a] rounded-full px-4 py-2 text-[13px] font-medium">
-          Request a Quote
-        </Link>
-      </div>
     </>
   )
 }

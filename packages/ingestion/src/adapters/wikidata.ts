@@ -17,7 +17,7 @@ import type { SourceAdapter, AdapterContext, SourceReference, FetchResult, Parse
 import { guardedFetch, validateSourceStatus, checkRawPolicy } from '@robotspace/ingestion/src/adapter-sdk'
 
 const WIKIDATA_SPARQL_ENDPOINT = 'https://query.wikidata.org/sparql'
-const WIKIDATA_USER_AGENT = 'RobotSpace-Bot/1.0 (https://robotspace.io; mailto:vadikmaslov@gmail.com)'
+const WIKIDATA_USER_AGENT = 'RobotSpace-Bot/1.0 (https://robotspace.io)'
 
 // P31 (instance of) values for robotics-related items
 const ROBOT_INSTANCE_IDS = [

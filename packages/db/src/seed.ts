@@ -173,8 +173,8 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: Record<string, unknown> }> =
   {
     key: 'recipients',
     value: {
-      notification_email: 'vadikmaslov@gmail.com',
-      quote_email: 'vadikmaslov@gmail.com',
+      notification_email: process.env.SMTP_EMAIL ?? '',
+      quote_email: process.env.SMTP_EMAIL ?? '',
     },
   },
   {

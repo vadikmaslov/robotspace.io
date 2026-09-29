@@ -51,6 +51,10 @@ export function registryRepository(db: PrismaClient) {
         await writable(tx, input.userId, input.environment ?? 'production')
         const project = await tx.software_packages.findUnique({ where: { id: input.projectId } })
         if (!project?.entity_id) throw new Error('Registry project required')
+        const owner = await tx.entity_claims.findFirst({ where: { entity_id: project.entity_id, claimant_id: input.userId, status: 'VERIFIED' }, select: { id: true } })
+        if (!owner) throw new Error('Verified project ownership required')
+        const robot = await tx.entities.findFirst({ where: { id: input.robotId, entity_type: 'ROBOT', publication_status: 'PUBLISHED', archived_at: null }, select: { id: true } })
+        if (!robot) throw new Error('Published robot required')
         const compatibility = await tx.compatibility_claims.create({ data: {
           project_id: input.projectId, robot_id: input.robotId, subject_type: 'PROJECT', subject_entity_id: input.projectId,
           object_type: 'ROBOT', object_entity_id: input.robotId, type: 'SOFTWARE', claim_status: 'DISCOVERED',

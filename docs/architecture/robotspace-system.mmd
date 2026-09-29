@@ -1,0 +1,25 @@
+flowchart LR
+  visitor[Visitor / developer / manufacturer]
+  admin[RobotSpace administrator]
+  web[Next.js web application\npublic pages, Registry, admin]
+  service[Server actions and service layer\nauthentication, permissions, publication rules]
+  db[(PostgreSQL + Prisma\ncatalog, Registry, evidence, audit, jobs)]
+  worker[Background worker\ningestion, GitHub refresh, scheduled jobs]
+  external[GitHub, source websites, DNS, S3, email]
+  contribution[Contribution\nproject, claim, correction, compatibility report]
+  evidence[HTTPS evidence / ownership proof]
+  moderation[Moderation decision]
+  publication[Public projection / notification]
+
+  visitor --> web
+  admin --> web
+  web --> service --> db
+  worker <--> db
+  worker <--> external
+  service <--> external
+  contribution --> evidence --> moderation --> publication
+  admin --> moderation
+  service --> contribution
+  moderation --> db
+  db --> publication
+  publication --> web

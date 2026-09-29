@@ -1,3 +1,4 @@
+import { adminApiDenied } from '../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { isSourceKey, parseSourceInput } from '../../../../../lib/source-catalog'
 
@@ -9,6 +10,8 @@ async function getKey(params: Params['params']) {
 }
 
 export async function GET(_req: NextRequest, { params }: Params) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const key = await getKey(params)
   if (!isSourceKey(key)) return NextResponse.json({ error: 'Invalid source key' }, { status: 400 })
   try {
@@ -30,6 +33,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const key = await getKey(params)
   if (!isSourceKey(key)) return NextResponse.json({ error: 'Invalid source key' }, { status: 400 })
   try {
@@ -55,6 +60,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const key = await getKey(params)
   if (!isSourceKey(key)) return NextResponse.json({ error: 'Invalid source key' }, { status: 400 })
   try {

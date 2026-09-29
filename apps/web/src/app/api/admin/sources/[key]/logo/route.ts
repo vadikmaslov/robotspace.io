@@ -1,9 +1,12 @@
+import { adminApiDenied } from '../../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { assertImageRequestSize, ImageValidationError, readValidatedImage } from '../../../../../../lib/image-security'
 import { storeImage } from '../../../../../../lib/image-storage'
 import { isSourceKey } from '../../../../../../lib/source-catalog'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { key } = await params
   try {
     if (!isSourceKey(key)) return NextResponse.json({ error: 'Invalid source key' }, { status: 400 })

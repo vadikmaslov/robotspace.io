@@ -1,8 +1,11 @@
+import { adminApiDenied } from '../../../../../../lib/admin-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { assertImageRequestSize, ImageValidationError, isUuid, readValidatedImage } from '../../../../../../lib/image-security'
 import { storeImage } from '../../../../../../lib/image-storage'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await adminApiDenied()
+  if (denied) return denied
   const { id } = await params
   try {
     if (!isUuid(id)) return NextResponse.json({ error: 'Invalid article ID' }, { status: 400 })

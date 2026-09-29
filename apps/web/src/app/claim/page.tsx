@@ -45,7 +45,7 @@ export default async function ClaimPage({ searchParams }: { searchParams: Promis
   return <div className="max-w-[720px] mx-auto px-6 py-12">
     <p className="text-sm mb-3" style={{ color: 'var(--color-text-muted)' }}><Link href="/registry">Registry</Link> / Claim project</p>
     <h1 className="text-3xl font-semibold" style={{ color: 'var(--color-text-heading)' }}>Claim a project</h1>
-    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-muted)' }}>Connect your GitHub account and confirm that you administer the project's public repository.</p>
+    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-muted)' }}>Connect your GitHub account and confirm that you administer the project's public repository.</p><Link href="/faq#claim-project" className="mt-2 inline-block text-sm underline" style={{ color: 'var(--color-text-muted)' }}>How ownership verification works</Link>
     {message && <p role="status" className="mt-6 rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--color-border-color)' }}>{message}</p>}
     {!available ? <p className="mt-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Project claims are being prepared.</p> : !project ? <p className="mt-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>Open a project in Registry and choose Claim project.</p> : <section className="mt-8 rounded-xl border p-6" style={{ borderColor: 'var(--color-border-color)', background: 'var(--color-bg-card)' }}>
       <h2 className="text-lg font-medium">{project.name}</h2><p className="mt-1 text-xs break-all" style={{ color: 'var(--color-text-muted)' }}>{project.repositoryUrl}</p>
@@ -56,5 +56,6 @@ export default async function ClaimPage({ searchParams }: { searchParams: Promis
         {isRegistryUser && currentClaim?.status === 'VERIFIED' && <form action={revokeProjectClaim}><input type="hidden" name="project" value={slug} /><input type="hidden" name="claim" value={currentClaim.id} /><button className="rounded-md border px-4 py-2 text-sm" style={{ borderColor: 'var(--color-border-color)' }}>Revoke claim</button></form>}
       </div>}
     </section>}
+    {isRegistryUser && currentClaim?.status === 'VERIFIED' && <div className="mt-6 flex gap-4 text-sm"><Link href={`/projects/${slug}/manage`} className="underline">Manage project</Link><Link href="/developers/new" className="underline">Create developer profile</Link></div>}
   </div>
 }
